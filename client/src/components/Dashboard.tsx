@@ -329,21 +329,29 @@ export function Dashboard() {
         verifySignatures: false,
       });
 
-      const result = await activeWallet.signAndSendTransaction({
+      const signResult = await (activeWallet as any).signTransaction({
         transaction: serializedTx,
-        chain: "solana:mainnet" as any,
-        options: {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
-        } as any,
+        address: activeWallet.address,
+        chain: "solana:mainnet",
       });
 
-      setCreationStep("confirming");
+      let signedTxBytes: Uint8Array;
+      if (signResult.signedTransaction instanceof Uint8Array) {
+        signedTxBytes = signResult.signedTransaction;
+      } else if (typeof signResult.signedTransaction === "object" && signResult.signedTransaction !== null) {
+        signedTxBytes = new Uint8Array(Object.values(signResult.signedTransaction));
+      } else {
+        signedTxBytes = new Uint8Array(signResult.signedTransaction);
+      }
 
-      const signatureBytes = result.signature;
-      const txid = typeof signatureBytes === "string"
-        ? signatureBytes
-        : bs58.encode(signatureBytes);
+      const txid = await connection.sendRawTransaction(signedTxBytes, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        maxRetries: 3,
+      });
+
+      console.log("Pool creation tx sent:", txid);
+      setCreationStep("confirming");
 
       await connection.confirmTransaction(
         { signature: txid, blockhash, lastValidBlockHeight },
@@ -361,7 +369,12 @@ export function Dashboard() {
       });
     } catch (e: any) {
       console.error("Pool creation failed:", e);
-      const msg = e?.message || "Transaction failed";
+      let msg = e?.message || "Transaction failed";
+      if (e?.logs) {
+        console.error("Transaction logs:", e.logs);
+        const lastLog = e.logs[e.logs.length - 1];
+        if (lastLog) msg += ` | ${lastLog}`;
+      }
       setPoolError(msg);
       setCreationStep("idle");
       toast({

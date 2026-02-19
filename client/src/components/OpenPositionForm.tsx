@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
-import bs58 from "bs58";
+
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -219,19 +219,26 @@ export function OpenPositionForm({ onSuccess }: Props) {
         verifySignatures: false,
       });
 
-      const result = await activeWallet.signAndSendTransaction({
+      const signResult = await (activeWallet as any).signTransaction({
         transaction: serializedTx,
-        chain: "solana:mainnet" as any,
-        options: {
-          skipPreflight: false,
-          preflightCommitment: "confirmed",
-        } as any,
+        address: activeWallet.address,
+        chain: "solana:mainnet",
       });
 
-      const signatureBytes = result.signature;
-      const txid = typeof signatureBytes === "string"
-        ? signatureBytes
-        : bs58.encode(signatureBytes);
+      let signedTxBytes: Uint8Array;
+      if (signResult.signedTransaction instanceof Uint8Array) {
+        signedTxBytes = signResult.signedTransaction;
+      } else if (typeof signResult.signedTransaction === "object" && signResult.signedTransaction !== null) {
+        signedTxBytes = new Uint8Array(Object.values(signResult.signedTransaction));
+      } else {
+        signedTxBytes = new Uint8Array(signResult.signedTransaction);
+      }
+
+      const txid = await connection.sendRawTransaction(signedTxBytes, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        maxRetries: 3,
+      });
 
       await connection.confirmTransaction(
         { signature: txid, blockhash, lastValidBlockHeight },
