@@ -235,58 +235,6 @@ export function PoolSettings({ onSaved }: Props) {
                   testIdPrefix="toggle-fee-mode"
                 />
               </div>
-
-              <div className="h-px bg-border" />
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Ending Fee</p>
-                  <p className="text-xs text-muted-foreground">Fee after schedule completes</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    value={settings.endingFeeBps}
-                    onChange={(e) => update("endingFeeBps", parseInt(e.target.value) || 0)}
-                    className="w-20 text-right text-sm font-mono"
-                    data-testid="input-ending-fee"
-                  />
-                  <span className="text-xs text-muted-foreground font-medium">bps</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Duration</p>
-                  <p className="text-xs text-muted-foreground">Time to reach ending fee</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    value={settings.feeDurationSeconds}
-                    onChange={(e) => update("feeDurationSeconds", parseInt(e.target.value) || 1)}
-                    className="w-20 text-right text-sm font-mono"
-                    data-testid="input-fee-duration"
-                  />
-                  <span className="text-xs text-muted-foreground font-medium">sec</span>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Periods</p>
-                  <p className="text-xs text-muted-foreground">Number of fee steps</p>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Input
-                    type="number"
-                    value={settings.feeNumberOfPeriods}
-                    onChange={(e) => update("feeNumberOfPeriods", parseInt(e.target.value) || 1)}
-                    className="w-20 text-right text-sm font-mono"
-                    data-testid="input-fee-periods"
-                  />
-                </div>
-              </div>
             </>
           )}
         </CardContent>
