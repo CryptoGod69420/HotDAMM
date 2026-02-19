@@ -1,5 +1,6 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
+import { useExportWallet } from "@privy-io/react-auth";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
@@ -20,6 +21,15 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
 import { PoolSettings, loadSettings } from "./PoolSettings";
 import {
@@ -42,6 +52,11 @@ import {
   AlertCircle,
   Settings,
   Search,
+  User,
+  KeyRound,
+  Mail,
+  Shield,
+  ArrowDownToLine,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -61,6 +76,7 @@ type CreationStep = "idle" | "swapping" | "creating-pool" | "confirming" | "done
 export function Dashboard() {
   const { logout, user } = usePrivy();
   const { wallets } = useWallets();
+  const { exportWallet } = useExportWallet();
   const connection = useConnection();
   const cpAmm = useCpAmm();
   const [balance, setBalance] = useState<number | null>(null);
@@ -69,6 +85,7 @@ export function Dashboard() {
   const [copied, setCopied] = useState(false);
   const [lastTxSignature, setLastTxSignature] = useState<string | null>(null);
   const [walletTimeout, setWalletTimeout] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
   const { toast } = useToast();
 
   const [searchInput, setSearchInput] = useState("");
@@ -114,6 +131,7 @@ export function Dashboard() {
     if (!walletAddress) return;
     await navigator.clipboard.writeText(walletAddress);
     setCopied(true);
+    toast({ title: "Copied", description: "Wallet address copied to clipboard." });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -327,6 +345,41 @@ export function Dashboard() {
     }
   };
 
+  const handleExportWallet = async () => {
+    const exportAddr = embeddedWalletAddress || walletAddress;
+    if (!exportAddr) return;
+    try {
+      await exportWallet({ address: exportAddr });
+    } catch (e: any) {
+      console.error("Export wallet failed:", e);
+      toast({
+        title: "Export Failed",
+        description: e?.message || "Could not export wallet keys.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const loginMethod = (() => {
+    if (user?.email) return { type: "Email", value: user.email.address };
+    if (user?.google) return { type: "Google", value: user.google.email };
+    if (user?.twitter) return { type: "Twitter", value: `@${user.twitter.username}` };
+    if (user?.discord) return { type: "Discord", value: user.discord.username };
+    if (user?.wallet) return { type: "Wallet", value: shortenAddress(user.wallet.address) };
+    return { type: "Unknown", value: "" };
+  })();
+
+  const userInitial = (() => {
+    if (user?.email) return user.email.address.charAt(0).toUpperCase();
+    if (user?.google) return user.google.email.charAt(0).toUpperCase();
+    if (user?.twitter) return user.twitter.username?.charAt(0).toUpperCase() || "T";
+    if (user?.discord) return user.discord.username?.charAt(0).toUpperCase() || "D";
+    return "U";
+  })();
+
+  const embeddedWalletAddress = user?.wallet?.address;
+  const isEmbeddedWallet = !!embeddedWalletAddress;
+
   if (view === "settings") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
@@ -344,11 +397,6 @@ export function Dashboard() {
             <span className="font-semibold text-sm">Pool Settings</span>
           </div>
           <div className="flex items-center gap-1">
-            {walletAddress && (
-              <Badge variant="secondary" className="text-xs font-mono">
-                {shortenAddress(walletAddress)}
-              </Badge>
-            )}
             <ThemeToggle />
           </div>
         </header>
@@ -369,38 +417,97 @@ export function Dashboard() {
           <Droplets className="w-5 h-5 text-primary" />
           <span className="font-semibold text-sm">Meteora Position Opener</span>
         </div>
-        <div className="flex items-center gap-1">
-          <ThemeToggle />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={logout}
-            data-testid="button-logout"
+
+        <div
+          className="flex items-center gap-0 rounded-full border bg-card"
+          data-testid="header-pill-group"
+        >
+          <button
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium tabular-nums hover-elevate rounded-l-full"
+            onClick={fetchBalance}
+            disabled={loadingBalance}
+            data-testid="button-pill-balance"
           >
-            <LogOut className="w-4 h-4" />
-          </Button>
+            {loadingBalance ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />
+            ) : (
+              <Wallet className="w-3.5 h-3.5 text-muted-foreground" />
+            )}
+            <span>
+              {balance !== null ? `${formatNumber(balance)} SOL` : "---"}
+            </span>
+          </button>
+
+          <Separator orientation="vertical" className="h-5" />
+
+          <button
+            className="flex items-center justify-center p-1.5 hover-elevate"
+            onClick={() => setView("settings")}
+            data-testid="button-pill-settings"
+          >
+            <ArrowDownToLine className="w-4 h-4 text-muted-foreground" />
+          </button>
+
+          <Separator orientation="vertical" className="h-5" />
+
+          <button
+            className="flex items-center justify-center p-1 pr-1.5 hover-elevate rounded-r-full"
+            onClick={() => setProfileOpen(true)}
+            data-testid="button-pill-profile"
+          >
+            <Avatar className="h-7 w-7">
+              <AvatarFallback className="text-xs font-medium bg-primary/15 text-primary">
+                {userInitial}
+              </AvatarFallback>
+            </Avatar>
+          </button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto">
-        <div className="max-w-2xl mx-auto p-4 space-y-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Wallet className="w-4 h-4 text-muted-foreground" />
-                Connected Wallet
-              </CardTitle>
-              <Badge variant="outline" className="text-xs">
-                Mainnet
-              </Badge>
-            </CardHeader>
-            <CardContent className="space-y-3">
+      <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
+        <SheetContent side="right" className="flex flex-col">
+          <SheetHeader>
+            <SheetTitle>Profile</SheetTitle>
+            <SheetDescription>Account and wallet details</SheetDescription>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-auto space-y-5 mt-2">
+            <div className="flex items-center gap-3">
+              <Avatar className="h-12 w-12">
+                <AvatarFallback className="text-base font-semibold bg-primary/15 text-primary">
+                  {userInitial}
+                </AvatarFallback>
+              </Avatar>
+              <div className="min-w-0 space-y-0.5">
+                <p className="text-sm font-medium truncate" data-testid="text-profile-login-value">
+                  {loginMethod.value}
+                </p>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  {loginMethod.type === "Email" || loginMethod.type === "Google" ? (
+                    <Mail className="w-3 h-3" />
+                  ) : (
+                    <Shield className="w-3 h-3" />
+                  )}
+                  <span data-testid="text-profile-login-method">
+                    Signed in via {loginMethod.type}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Wallet
+              </p>
+
               {!walletAddress ? (
                 walletTimeout ? (
                   <div className="space-y-2">
                     <div className="flex items-start gap-2 text-muted-foreground text-sm">
                       <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
-                      <p>No wallet detected. Make sure your wallet extension is connected and try refreshing the page.</p>
+                      <p>No wallet detected. Try refreshing.</p>
                     </div>
                     <Button
                       variant="outline"
@@ -419,44 +526,44 @@ export function Dashboard() {
                   </div>
                 )
               ) : (
-                <>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <code
-                      className="text-xs font-mono bg-muted px-2 py-1 rounded-md break-all"
-                      data-testid="text-wallet-address"
-                    >
-                      {walletAddress}
-                    </code>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={copyAddress}
-                      data-testid="button-copy-address"
-                    >
-                      {copied ? (
-                        <CheckCircle2 className="w-4 h-4 text-green-500" />
-                      ) : (
-                        <Copy className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <a
-                      href={getSolscanAccountUrl(walletAddress, cluster)}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      <Button variant="ghost" size="icon" data-testid="button-solscan-wallet">
-                        <ExternalLink className="w-4 h-4" />
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Address</p>
+                    <div className="flex items-center gap-1.5">
+                      <code
+                        className="text-xs font-mono bg-muted px-2 py-1 rounded-md truncate flex-1"
+                        data-testid="text-wallet-address"
+                      >
+                        {walletAddress}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={copyAddress}
+                        data-testid="button-copy-address"
+                      >
+                        {copied ? (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        ) : (
+                          <Copy className="w-4 h-4" />
+                        )}
                       </Button>
-                    </a>
+                      <a
+                        href={getSolscanAccountUrl(walletAddress, cluster)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <Button variant="ghost" size="icon" data-testid="button-solscan-wallet">
+                          <ExternalLink className="w-4 h-4" />
+                        </Button>
+                      </a>
+                    </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-2 flex-wrap">
-                    <div>
-                      <p className="text-xs text-muted-foreground">SOL Balance</p>
-                      <p
-                        className="text-lg font-semibold tabular-nums"
-                        data-testid="text-sol-balance"
-                      >
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Balance</p>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-base font-semibold tabular-nums" data-testid="text-sol-balance">
                         {loadingBalance ? (
                           <Loader2 className="w-4 h-4 animate-spin inline" />
                         ) : balance !== null ? (
@@ -465,29 +572,116 @@ export function Dashboard() {
                           "---"
                         )}
                       </p>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={fetchBalance}
+                        disabled={loadingBalance}
+                        data-testid="button-refresh-balance"
+                      >
+                        <RefreshCw className={`w-4 h-4 ${loadingBalance ? "animate-spin" : ""}`} />
+                      </Button>
                     </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={fetchBalance}
-                      disabled={loadingBalance}
-                      data-testid="button-refresh-balance"
-                    >
-                      <RefreshCw
-                        className={`w-4 h-4 ${loadingBalance ? "animate-spin" : ""}`}
-                      />
-                    </Button>
                   </div>
 
-                  {user?.email && (
-                    <p className="text-xs text-muted-foreground">
-                      Logged in as {user.email.address}
-                    </p>
-                  )}
-                </>
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Network</p>
+                    <Badge variant="outline" className="text-xs">Mainnet</Badge>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <p className="text-xs text-muted-foreground">Wallet Type</p>
+                    <Badge variant="secondary" className="text-xs">
+                      {isEmbeddedWallet ? "Privy Embedded" : "External Wallet"}
+                    </Badge>
+                  </div>
+                </div>
               )}
-            </CardContent>
-          </Card>
+            </div>
+
+            {isEmbeddedWallet && walletAddress && (
+              <>
+                <Separator />
+                <div className="space-y-3">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Security
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleExportWallet}
+                    data-testid="button-export-wallet"
+                  >
+                    <KeyRound className="w-4 h-4 mr-2" />
+                    Export Wallet Keys
+                  </Button>
+                  <p className="text-xs text-muted-foreground">
+                    Export your embedded wallet's private key for backup or use in another wallet app.
+                  </p>
+                </div>
+              </>
+            )}
+
+            <Separator />
+
+            <div className="space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Preferences
+              </p>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm">Theme</span>
+                <ThemeToggle />
+              </div>
+            </div>
+          </div>
+
+          <div className="pt-4 border-t mt-auto">
+            <Button
+              variant="outline"
+              className="w-full justify-start text-destructive"
+              onClick={logout}
+              data-testid="button-logout"
+            >
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      <main className="flex-1 overflow-auto">
+        <div className="max-w-2xl mx-auto p-4 space-y-4">
+
+          {!walletAddress && !walletTimeout && (
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Connecting wallet...
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {!walletAddress && walletTimeout && (
+            <Card>
+              <CardContent className="pt-4 space-y-2">
+                <div className="flex items-start gap-2 text-muted-foreground text-sm">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p>No wallet detected. Make sure your wallet extension is connected and try refreshing the page.</p>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => window.location.reload()}
+                  data-testid="button-refresh-page-main"
+                >
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  Refresh
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           {lastTxSignature && (
             <Card className="border-green-500/30 bg-green-500/5">
@@ -608,18 +802,6 @@ export function Dashboard() {
               )}
             </CardContent>
           </Card>
-
-          <Button
-            className="w-full"
-            variant="outline"
-            size="lg"
-            onClick={() => setView("settings")}
-            disabled={isCreating}
-            data-testid="button-settings"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
 
           <Card>
             <CardHeader>
