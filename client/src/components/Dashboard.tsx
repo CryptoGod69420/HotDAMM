@@ -1,6 +1,5 @@
 import { usePrivy } from "@privy-io/react-auth";
-import { useWallets } from "@privy-io/react-auth/solana";
-import { useExportWallet } from "@privy-io/react-auth";
+import { useWallets, useExportWallet } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
