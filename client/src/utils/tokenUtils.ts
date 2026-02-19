@@ -41,14 +41,14 @@ export function formatNumber(num: number, decimals = 4): string {
   });
 }
 
-export function getSolscanUrl(signature: string, cluster: string = "devnet"): string {
+export function getSolscanUrl(signature: string, cluster: string = "mainnet-beta"): string {
   const base = "https://solscan.io/tx/";
   return cluster === "mainnet-beta"
     ? `${base}${signature}`
     : `${base}${signature}?cluster=${cluster}`;
 }
 
-export function getSolscanAccountUrl(address: string, cluster: string = "devnet"): string {
+export function getSolscanAccountUrl(address: string, cluster: string = "mainnet-beta"): string {
   const base = "https://solscan.io/account/";
   return cluster === "mainnet-beta"
     ? `${base}${address}`

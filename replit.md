@@ -1,7 +1,7 @@
 # Meteora DAMMv2 Position Opener
 
 ## Overview
-A Solana DeFi frontend application that enables users to create custom liquidity positions on Meteora's DAMMv2 constant-product AMM. Uses Privy embedded wallet authentication for a seamless one-click pool creation experience on Solana devnet.
+A Solana DeFi frontend application that enables users to create custom liquidity positions on Meteora's DAMMv2 constant-product AMM. Uses Privy embedded wallet authentication for a seamless one-click pool creation experience on Solana mainnet.
 
 ## Architecture
 - **Frontend-only** application (no backend/database needed for core functionality)
@@ -34,7 +34,7 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 
 ## Environment Variables
 - `VITE_PRIVY_APP_ID` - Required. Privy application ID from dashboard.privy.io
-- `VITE_SOLANA_RPC_URL` - Optional. Defaults to `https://api.devnet.solana.com`
+- `VITE_SOLANA_RPC_URL` - Optional. Defaults to `https://api.mainnet-beta.solana.com`
 
 ## Setup Requirements
 1. Create app at dashboard.privy.io

@@ -219,11 +219,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
         verifySignatures: false,
       });
 
-      const rpcUrl = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.devnet.solana.com";
-      const isDevnet = rpcUrl.includes("devnet");
-      const chainId = isDevnet
-        ? "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
-        : "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
+      const chainId = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
 
       const result = await signTransaction({
         transaction: serializedTx,

@@ -70,9 +70,7 @@ export function Dashboard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const cluster = (import.meta.env.VITE_SOLANA_RPC_URL || "").includes("devnet")
-    ? "devnet"
-    : "mainnet-beta";
+  const cluster = "mainnet-beta";
 
   if (view === "open-position") {
     return (
@@ -148,7 +146,7 @@ export function Dashboard() {
                 Embedded Wallet
               </CardTitle>
               <Badge variant="outline" className="text-xs">
-                {cluster === "devnet" ? "Devnet" : "Mainnet"}
+                Mainnet
               </Badge>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -236,7 +234,7 @@ export function Dashboard() {
                   <div className="space-y-1 min-w-0">
                     <p className="text-sm font-medium">Position Created Successfully</p>
                     <a
-                      href={`https://solscan.io/tx/${lastTxSignature}${cluster === "devnet" ? "?cluster=devnet" : ""}`}
+                      href={`https://solscan.io/tx/${lastTxSignature}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-xs text-primary hover:underline flex items-center gap-1 break-all"
@@ -284,38 +282,6 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {cluster === "devnet" && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-sm font-medium">Devnet Testing</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <p className="text-sm text-muted-foreground">
-                  You're on devnet. Get test SOL and tokens:
-                </p>
-                <div className="flex flex-col gap-2">
-                  <a
-                    href="https://faucet.solana.com/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    Solana Faucet (devnet SOL)
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                  <a
-                    href="https://faucet.raccoons.dev/"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-primary hover:underline flex items-center gap-1"
-                  >
-                    Raccoons Faucet (test tokens)
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </main>
     </div>
