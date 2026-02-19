@@ -1,4 +1,4 @@
-import { usePrivy } from "@privy-io/react-auth";
+import { usePrivy, type WalletWithMetadata } from "@privy-io/react-auth";
 import { useWallets, useExportWallet } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
@@ -383,7 +383,13 @@ export function Dashboard() {
     return "U";
   })();
 
-  const embeddedWalletAddress = user?.wallet?.address;
+  const solanaEmbeddedWallet = user?.linkedAccounts?.find(
+    (account): account is WalletWithMetadata =>
+      account.type === "wallet" &&
+      (account as WalletWithMetadata).walletClientType === "privy" &&
+      (account as WalletWithMetadata).chainType === "solana"
+  ) as WalletWithMetadata | undefined;
+  const embeddedWalletAddress = solanaEmbeddedWallet?.address || null;
   const isEmbeddedWallet = !!embeddedWalletAddress;
 
   if (view === "settings") {
