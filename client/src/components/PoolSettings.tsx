@@ -31,7 +31,7 @@ const DEFAULT_SETTINGS: PoolSettingsValues = {
   feeNumberOfPeriods: 50,
   enableDynamicFee: true,
   dynamicFeeMaxBps: 25,
-  collectFeeMode: "2",
+  collectFeeMode: "1",
   activationType: "1",
   activateNow: true,
   enableFeeScheduler: true,
@@ -51,7 +51,11 @@ export function loadSettings(): PoolSettingsValues {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_SETTINGS, ...parsed };
+      const merged = { ...DEFAULT_SETTINGS, ...parsed };
+      if (merged.collectFeeMode !== "0" && merged.collectFeeMode !== "1") {
+        merged.collectFeeMode = "1";
+      }
+      return merged;
     }
   } catch {}
   return { ...DEFAULT_SETTINGS };
@@ -189,7 +193,7 @@ export function PoolSettings({ onSaved }: Props) {
             </div>
             <ToggleGroup
               options={[
-                { label: "SOL", value: "2" },
+                { label: "Quote (B)", value: "1" },
                 { label: "Both", value: "0" },
               ]}
               value={settings.collectFeeMode}
