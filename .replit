@@ -41,5 +41,3 @@ waitForPort = 5000
 [userenv]
 
 [userenv.shared]
-VITE_PRIVY_APP_ID = "cmlstt4w300mg0djvovqxt500"
-VITE_SOLANA_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=a43ebca6-37b6-4009-9cfe-b2dac1455340"

@@ -34,7 +34,8 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 
 ## Environment Variables
 - `VITE_PRIVY_APP_ID` - Required. Privy application ID from dashboard.privy.io
-- `VITE_SOLANA_RPC_URL` - Optional. Defaults to `https://api.mainnet-beta.solana.com`
+- `VITE_SOLANA_RPC_URL` - Optional. Custom Solana RPC URL (mainnet). Takes priority over VITE_GATEKEEPER_RPC_URL
+- `VITE_GATEKEEPER_RPC_URL` - Optional. Alternative RPC URL fallback. Defaults to `https://api.mainnet-beta.solana.com`
 
 ## Setup Requirements
 1. Create app at dashboard.privy.io

@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { Connection } from "@solana/web3.js";
 
-const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || "https://api.mainnet-beta.solana.com";
+const RPC_URL = import.meta.env.VITE_SOLANA_RPC_URL || import.meta.env.VITE_GATEKEEPER_RPC_URL || "https://api.mainnet-beta.solana.com";
 
 let sharedConnection: Connection | null = null;
 
