@@ -56,6 +56,7 @@ import {
   Mail,
   Shield,
   ArrowDownToLine,
+  Coins,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -63,11 +64,20 @@ const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
 type View = "dashboard" | "settings";
 
+interface TokenMetadata {
+  name: string;
+  symbol: string;
+  logoUrl: string | null;
+  marketCap: number | null;
+  priceUsd: string | null;
+}
+
 interface TokenSearchResult {
   mint: string;
   decimals: number;
   tokenProgram: PublicKey;
   isToken2022: boolean;
+  metadata: TokenMetadata | null;
 }
 
 type CreationStep = "idle" | "swapping" | "creating-pool" | "confirming" | "done";
@@ -136,6 +146,26 @@ export function Dashboard() {
 
   const cluster = "mainnet-beta";
 
+  const fetchTokenMetadata = async (mintAddress: string): Promise<TokenMetadata | null> => {
+    try {
+      const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mintAddress}`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      const pairs = data?.pairs;
+      if (!pairs || pairs.length === 0) return null;
+      const pair = pairs[0];
+      return {
+        name: pair.baseToken?.name || "Unknown",
+        symbol: pair.baseToken?.symbol || "???",
+        logoUrl: pair.info?.imageUrl || null,
+        marketCap: pair.marketCap ?? pair.fdv ?? null,
+        priceUsd: pair.priceUsd || null,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const handleSearch = async () => {
     const trimmed = searchInput.trim();
     if (!trimmed) return;
@@ -148,12 +178,16 @@ export function Dashboard() {
 
     try {
       const mintPk = new PublicKey(trimmed);
-      const info = await getTokenMintInfo(connection, mintPk);
+      const [info, metadata] = await Promise.all([
+        getTokenMintInfo(connection, mintPk),
+        fetchTokenMetadata(trimmed),
+      ]);
       setSearchResult({
         mint: trimmed,
         decimals: info.decimals,
         tokenProgram: info.tokenProgram,
         isToken2022: info.isToken2022,
+        metadata,
       });
     } catch (e: any) {
       setSearchError(e?.message || "Invalid token address or token not found");
@@ -742,19 +776,55 @@ export function Dashboard() {
               {searchResult && (
                 <Card>
                   <CardContent className="pt-4">
-                    <div className="flex items-center justify-between gap-3 flex-wrap">
-                      <div className="space-y-1 min-w-0">
-                        <p className="text-sm font-medium">Token Found</p>
-                        <code className="text-xs font-mono text-muted-foreground break-all" data-testid="text-token-mint">
-                          {searchResult.mint}
-                        </code>
+                    <div className="flex items-center gap-3">
+                      {searchResult.metadata?.logoUrl ? (
+                        <img
+                          src={searchResult.metadata.logoUrl}
+                          alt={searchResult.metadata.symbol || "Token"}
+                          className="w-10 h-10 rounded-full shrink-0 bg-muted"
+                          data-testid="img-token-logo"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-full shrink-0 bg-muted flex items-center justify-center">
+                          <Coins className="w-5 h-5 text-muted-foreground" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0 space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <Badge variant="secondary" className="text-xs">
-                            {searchResult.decimals} decimals
-                          </Badge>
+                          <p className="text-sm font-semibold" data-testid="text-token-name">
+                            {searchResult.metadata?.name || "Unknown Token"}
+                          </p>
+                          {searchResult.metadata?.symbol && (
+                            <Badge variant="secondary" className="text-xs" data-testid="text-token-symbol">
+                              {searchResult.metadata.symbol}
+                            </Badge>
+                          )}
                           {searchResult.isToken2022 && (
                             <Badge variant="outline" className="text-xs">Token-2022</Badge>
                           )}
+                        </div>
+                        <code className="text-xs font-mono text-muted-foreground break-all block" data-testid="text-token-mint">
+                          {searchResult.mint}
+                        </code>
+                        <div className="flex items-center gap-3 flex-wrap text-xs text-muted-foreground">
+                          {searchResult.metadata?.priceUsd && (
+                            <span data-testid="text-token-price">
+                              Price: ${Number(searchResult.metadata.priceUsd) < 0.01
+                                ? Number(searchResult.metadata.priceUsd).toExponential(2)
+                                : Number(searchResult.metadata.priceUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 6 })}
+                            </span>
+                          )}
+                          {searchResult.metadata?.marketCap != null && (
+                            <span data-testid="text-token-mcap">
+                              MCap: ${searchResult.metadata.marketCap >= 1_000_000
+                                ? (searchResult.metadata.marketCap / 1_000_000).toFixed(2) + "M"
+                                : searchResult.metadata.marketCap >= 1_000
+                                  ? (searchResult.metadata.marketCap / 1_000).toFixed(1) + "K"
+                                  : searchResult.metadata.marketCap.toFixed(0)}
+                            </span>
+                          )}
+                          <span>{searchResult.decimals} decimals</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
                           Deposit: {loadSettings().depositAmountSol} SOL total ({(loadSettings().depositAmountSol / 2).toFixed(4)} SOL kept + {(loadSettings().depositAmountSol / 2).toFixed(4)} SOL swapped to token)
@@ -763,6 +833,7 @@ export function Dashboard() {
                       <Button
                         onClick={handleOpenPosition}
                         disabled={isCreating || !walletAddress}
+                        className="shrink-0"
                         data-testid="button-open-position"
                       >
                         {isCreating ? (
