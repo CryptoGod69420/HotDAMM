@@ -3,7 +3,7 @@ import { useWallets, useExportWallet } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
-import { LAMPORTS_PER_SOL, PublicKey, Keypair } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -243,16 +243,33 @@ export function Dashboard() {
       console.log("Actual token balance after swap:", tokenAmountBN.toString());
 
       const solInfo = await getTokenMintInfo(connection, solMint);
+      const solDecimals = solInfo.decimals;
       const solAmountBN = new BN(
         new Decimal(halfSol)
-          .mul(new Decimal(10).pow(solInfo.decimals))
+          .mul(new Decimal(10).pow(solDecimals))
           .floor()
           .toFixed(0)
       );
 
+      const tokenBuf = tokenMint.toBuffer();
+      const solBuf = solMint.toBuffer();
+      const tokenFirst = Buffer.compare(tokenBuf, solBuf) > 0;
+
+      const orderedMintA = tokenFirst ? tokenMint : solMint;
+      const orderedMintB = tokenFirst ? solMint : tokenMint;
+      const orderedAmountA = tokenFirst ? tokenAmountBN : solAmountBN;
+      const orderedAmountB = tokenFirst ? solAmountBN : tokenAmountBN;
+      const orderedProgramA = tokenFirst ? searchResult.tokenProgram : solInfo.tokenProgram;
+      const orderedProgramB = tokenFirst ? solInfo.tokenProgram : searchResult.tokenProgram;
+      const orderedDecimalsB = tokenFirst ? solDecimals : searchResult.decimals;
+
+      console.log("Mint ordering:", tokenFirst ? "token first" : "SOL first",
+        "| A:", orderedMintA.toBase58().slice(0, 8),
+        "| B:", orderedMintB.toBase58().slice(0, 8));
+
       const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
-        tokenAAmount: tokenAmountBN,
-        tokenBAmount: solAmountBN,
+        tokenAAmount: orderedAmountA,
+        tokenBAmount: orderedAmountB,
         minSqrtPrice: MIN_SQRT_PRICE,
         maxSqrtPrice: MAX_SQRT_PRICE,
       });
@@ -277,7 +294,7 @@ export function Dashboard() {
                 totalDuration: 1,
               },
         },
-        searchResult.decimals,
+        orderedDecimalsB,
         activationTypeNum === 1
           ? ActivationType.Timestamp
           : ActivationType.Slot
@@ -300,10 +317,10 @@ export function Dashboard() {
         payer: walletPublicKey,
         creator: walletPublicKey,
         positionNft: positionNftMint.publicKey,
-        tokenAMint: tokenMint,
-        tokenBMint: solMint,
-        tokenAAmount: tokenAmountBN,
-        tokenBAmount: solAmountBN,
+        tokenAMint: orderedMintA,
+        tokenBMint: orderedMintB,
+        tokenAAmount: orderedAmountA,
+        tokenBAmount: orderedAmountB,
         sqrtMinPrice: MIN_SQRT_PRICE,
         sqrtMaxPrice: MAX_SQRT_PRICE,
         initSqrtPrice,
@@ -313,14 +330,19 @@ export function Dashboard() {
         collectFeeMode: collectFeeModeNum,
         activationPoint: settings.activateNow ? null : new BN(Date.now()),
         activationType: activationTypeNum,
-        tokenAProgram: searchResult.tokenProgram,
-        tokenBProgram: solInfo.tokenProgram,
+        tokenAProgram: orderedProgramA,
+        tokenBProgram: orderedProgramB,
       });
 
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = walletPublicKey;
+
+      tx.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })
+      );
 
       tx.partialSign(positionNftMint);
 

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import { Keypair, PublicKey, Transaction, ComputeBudgetProgram } from "@solana/web3.js";
 
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import BN from "bn.js";
@@ -147,9 +147,21 @@ export function OpenPositionForm({ onSuccess }: Props) {
           .toFixed(0)
       );
 
+      const bufA = tokenAMint.toBuffer();
+      const bufB = tokenBMint.toBuffer();
+      const aFirst = Buffer.compare(bufA, bufB) > 0;
+
+      const orderedMintA = aFirst ? tokenAMint : tokenBMint;
+      const orderedMintB = aFirst ? tokenBMint : tokenAMint;
+      const orderedAmountA = aFirst ? tokenAAmountBN : tokenBAmountBN;
+      const orderedAmountB = aFirst ? tokenBAmountBN : tokenAAmountBN;
+      const orderedProgramA = aFirst ? (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID);
+      const orderedProgramB = aFirst ? (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID);
+      const orderedDecimalsB = aFirst ? tokenBInfo.decimals : tokenAInfo.decimals;
+
       const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
-        tokenAAmount: tokenAAmountBN,
-        tokenBAmount: tokenBAmountBN,
+        tokenAAmount: orderedAmountA,
+        tokenBAmount: orderedAmountB,
         minSqrtPrice: MIN_SQRT_PRICE,
         maxSqrtPrice: MAX_SQRT_PRICE,
       });
@@ -167,7 +179,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
             totalDuration: values.feeDurationSeconds,
           },
         },
-        tokenBInfo.decimals,
+        orderedDecimalsB,
         activationTypeNum === 1
           ? ActivationType.Timestamp
           : ActivationType.Slot
@@ -190,10 +202,10 @@ export function OpenPositionForm({ onSuccess }: Props) {
         payer: walletPublicKey,
         creator: walletPublicKey,
         positionNft: positionNftMint.publicKey,
-        tokenAMint,
-        tokenBMint,
-        tokenAAmount: tokenAAmountBN,
-        tokenBAmount: tokenBAmountBN,
+        tokenAMint: orderedMintA,
+        tokenBMint: orderedMintB,
+        tokenAAmount: orderedAmountA,
+        tokenBAmount: orderedAmountB,
         sqrtMinPrice: MIN_SQRT_PRICE,
         sqrtMaxPrice: MAX_SQRT_PRICE,
         initSqrtPrice,
@@ -203,14 +215,19 @@ export function OpenPositionForm({ onSuccess }: Props) {
         collectFeeMode: collectFeeModeNum,
         activationPoint: values.activateNow ? null : new BN(Date.now()),
         activationType: activationTypeNum,
-        tokenAProgram: tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID,
-        tokenBProgram: tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID,
+        tokenAProgram: orderedProgramA,
+        tokenBProgram: orderedProgramB,
       });
 
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = walletPublicKey;
+
+      tx.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })
+      );
 
       tx.partialSign(positionNftMint);
 
