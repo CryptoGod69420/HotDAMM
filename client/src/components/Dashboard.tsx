@@ -441,16 +441,6 @@ export function Dashboard() {
           <Separator orientation="vertical" className="h-5" />
 
           <button
-            className="flex items-center justify-center p-1.5 hover-elevate"
-            onClick={() => setView("settings")}
-            data-testid="button-pill-settings"
-          >
-            <ArrowDownToLine className="w-4 h-4 text-muted-foreground" />
-          </button>
-
-          <Separator orientation="vertical" className="h-5" />
-
-          <button
             className="flex items-center justify-center p-1 pr-1.5 hover-elevate rounded-r-full"
             onClick={() => setProfileOpen(true)}
             data-testid="button-pill-profile"
@@ -802,6 +792,18 @@ export function Dashboard() {
               )}
             </CardContent>
           </Card>
+
+          <Button
+            className="w-full"
+            variant="outline"
+            size="lg"
+            onClick={() => setView("settings")}
+            disabled={isCreating}
+            data-testid="button-settings"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Pool Settings
+          </Button>
 
           <Card>
             <CardHeader>
