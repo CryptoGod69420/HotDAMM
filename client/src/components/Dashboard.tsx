@@ -1,22 +1,36 @@
 import { usePrivy } from "@privy-io/react-auth";
 import { useWallets } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
+import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
-import { LAMPORTS_PER_SOL, PublicKey } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, Keypair } from "@solana/web3.js";
+import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
+import BN from "bn.js";
+import Decimal from "decimal.js";
+import bs58 from "bs58";
+import {
+  getBaseFeeParams,
+  getDynamicFeeParams,
+  MIN_SQRT_PRICE,
+  MAX_SQRT_PRICE,
+  BaseFeeMode,
+  ActivationType,
+} from "@meteora-ag/cp-amm-sdk";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "./ThemeToggle";
-import { OpenPositionForm } from "./OpenPositionForm";
+import { PoolSettings, loadSettings } from "./PoolSettings";
 import {
   shortenAddress,
   formatNumber,
   getSolscanAccountUrl,
+  getTokenMintInfo,
 } from "@/utils/tokenUtils";
 import {
   Droplets,
   LogOut,
-  Plus,
   Copy,
   ExternalLink,
   Wallet,
@@ -25,15 +39,29 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  Settings,
+  Search,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
-type View = "dashboard" | "open-position";
+const WSOL_MINT = "So11111111111111111111111111111111111111112";
+
+type View = "dashboard" | "settings";
+
+interface TokenSearchResult {
+  mint: string;
+  decimals: number;
+  tokenProgram: PublicKey;
+  isToken2022: boolean;
+  userBalance: number;
+  rawBalance: BN;
+}
 
 export function Dashboard() {
   const { logout, user } = usePrivy();
   const { wallets } = useWallets();
   const connection = useConnection();
+  const cpAmm = useCpAmm();
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
   const [view, setView] = useState<View>("dashboard");
@@ -41,6 +69,13 @@ export function Dashboard() {
   const [lastTxSignature, setLastTxSignature] = useState<string | null>(null);
   const [walletTimeout, setWalletTimeout] = useState(false);
   const { toast } = useToast();
+
+  const [searchInput, setSearchInput] = useState("");
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchResult, setSearchResult] = useState<TokenSearchResult | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [creatingPool, setCreatingPool] = useState(false);
+  const [poolError, setPoolError] = useState<string | null>(null);
 
   const activeWallet = wallets.find((w) => w.address) || null;
   const walletAddress = activeWallet?.address;
@@ -82,7 +117,205 @@ export function Dashboard() {
 
   const cluster = "mainnet-beta";
 
-  if (view === "open-position") {
+  const handleSearch = async () => {
+    const trimmed = searchInput.trim();
+    if (!trimmed) return;
+
+    setSearchLoading(true);
+    setSearchResult(null);
+    setSearchError(null);
+    setPoolError(null);
+
+    try {
+      const mintPk = new PublicKey(trimmed);
+      const info = await getTokenMintInfo(connection, mintPk);
+
+      let userBalance = 0;
+      let rawBalance = new BN(0);
+      if (walletAddress) {
+        try {
+          const ata = await getAssociatedTokenAddress(
+            mintPk,
+            new PublicKey(walletAddress),
+            false,
+            info.tokenProgram
+          );
+          const account = await getAccount(connection, ata, "confirmed", info.tokenProgram);
+          rawBalance = new BN(account.amount.toString());
+          userBalance = new Decimal(rawBalance.toString())
+            .div(new Decimal(10).pow(info.decimals))
+            .toNumber();
+        } catch {
+          userBalance = 0;
+          rawBalance = new BN(0);
+        }
+      }
+
+      setSearchResult({
+        mint: trimmed,
+        decimals: info.decimals,
+        tokenProgram: info.tokenProgram,
+        isToken2022: info.isToken2022,
+        userBalance,
+        rawBalance,
+      });
+    } catch (e: any) {
+      setSearchError(e?.message || "Invalid token address or token not found");
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const trimmed = searchInput.trim();
+    if (trimmed.length >= 32 && trimmed.length <= 44) {
+      handleSearch();
+    } else {
+      setSearchResult(null);
+      setSearchError(null);
+    }
+  }, [searchInput]);
+
+  const handleOpenPosition = async () => {
+    if (!activeWallet || !searchResult) return;
+
+    setCreatingPool(true);
+    setPoolError(null);
+
+    try {
+      const settings = loadSettings();
+      const walletPublicKey = new PublicKey(activeWallet.address);
+
+      const solMint = new PublicKey(WSOL_MINT);
+      const tokenMint = new PublicKey(searchResult.mint);
+
+      const halfSol = settings.depositAmountSol / 2;
+
+      const solInfo = await getTokenMintInfo(connection, solMint);
+
+      const solAmountBN = new BN(
+        new Decimal(halfSol)
+          .mul(new Decimal(10).pow(solInfo.decimals))
+          .floor()
+          .toFixed(0)
+      );
+
+      const tokenAmountBN = searchResult.rawBalance;
+
+      const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
+        tokenAAmount: tokenAmountBN,
+        tokenBAmount: solAmountBN,
+        minSqrtPrice: MIN_SQRT_PRICE,
+        maxSqrtPrice: MAX_SQRT_PRICE,
+      });
+
+      const activationTypeNum = parseInt(settings.activationType);
+      const baseFeeModeNum = parseInt(settings.baseFeeMode) as BaseFeeMode;
+
+      const baseFeeParams = getBaseFeeParams(
+        {
+          baseFeeMode: baseFeeModeNum,
+          feeTimeSchedulerParam: {
+            startingFeeBps: settings.startingFeeBps,
+            endingFeeBps: settings.endingFeeBps,
+            numberOfPeriod: settings.feeNumberOfPeriods,
+            totalDuration: settings.feeDurationSeconds,
+          },
+        },
+        solInfo.decimals,
+        activationTypeNum === 1
+          ? ActivationType.Timestamp
+          : ActivationType.Slot
+      );
+
+      const dynamicFeeParams = settings.enableDynamicFee
+        ? getDynamicFeeParams(settings.dynamicFeeMaxBps)
+        : null;
+
+      const poolFees = {
+        baseFee: baseFeeParams,
+        padding: [],
+        dynamicFee: dynamicFeeParams,
+      };
+
+      const positionNftMint = Keypair.generate();
+      const collectFeeModeNum = parseInt(settings.collectFeeMode);
+
+      const { tx } = await cpAmm.createCustomPool({
+        payer: walletPublicKey,
+        creator: walletPublicKey,
+        positionNft: positionNftMint.publicKey,
+        tokenAMint: tokenMint,
+        tokenBMint: solMint,
+        tokenAAmount: tokenAmountBN,
+        tokenBAmount: solAmountBN,
+        sqrtMinPrice: MIN_SQRT_PRICE,
+        sqrtMaxPrice: MAX_SQRT_PRICE,
+        initSqrtPrice,
+        liquidityDelta,
+        poolFees,
+        hasAlphaVault: false,
+        collectFeeMode: collectFeeModeNum,
+        activationPoint: settings.activateNow ? null : new BN(Date.now()),
+        activationType: activationTypeNum,
+        tokenAProgram: searchResult.tokenProgram,
+        tokenBProgram: solInfo.tokenProgram,
+      });
+
+      const { blockhash, lastValidBlockHeight } =
+        await connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = walletPublicKey;
+
+      tx.partialSign(positionNftMint);
+
+      const serializedTx = tx.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
+      });
+
+      const result = await activeWallet.signAndSendTransaction({
+        transaction: serializedTx,
+        chain: { id: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" } as any,
+        options: {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        } as any,
+      });
+
+      const signatureBytes = result.signature;
+      const txid = typeof signatureBytes === "string"
+        ? signatureBytes
+        : bs58.encode(signatureBytes);
+
+      await connection.confirmTransaction(
+        { signature: txid, blockhash, lastValidBlockHeight },
+        "confirmed"
+      );
+
+      setLastTxSignature(txid);
+      setSearchInput("");
+      setSearchResult(null);
+      fetchBalance();
+      toast({
+        title: "Position Opened",
+        description: "Your liquidity position was created successfully.",
+      });
+    } catch (e: any) {
+      console.error("Transaction failed:", e);
+      const msg = e?.message || "Transaction failed";
+      setPoolError(msg);
+      toast({
+        title: "Transaction Failed",
+        description: msg.slice(0, 200),
+        variant: "destructive",
+      });
+    } finally {
+      setCreatingPool(false);
+    }
+  };
+
+  if (view === "settings") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
         <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
@@ -95,8 +328,8 @@ export function Dashboard() {
             >
               <ArrowLeft className="w-4 h-4" />
             </Button>
-            <Droplets className="w-5 h-5 text-primary" />
-            <span className="font-semibold text-sm">Open Position</span>
+            <Settings className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-sm">Pool Settings</span>
           </div>
           <div className="flex items-center gap-1">
             {walletAddress && (
@@ -110,17 +343,7 @@ export function Dashboard() {
 
         <main className="flex-1 overflow-auto">
           <div className="max-w-2xl mx-auto p-4">
-            <OpenPositionForm
-              onSuccess={(signature) => {
-                setLastTxSignature(signature);
-                setView("dashboard");
-                fetchBalance();
-                toast({
-                  title: "Position Opened",
-                  description: "Your liquidity position was created successfully.",
-                });
-              }}
-            />
+            <PoolSettings onSaved={() => setView("dashboard")} />
           </div>
         </main>
       </div>
@@ -277,15 +500,107 @@ export function Dashboard() {
             </Card>
           )}
 
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Search className="w-4 h-4 text-muted-foreground" />
+                Create Pool
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Paste token contract address..."
+                  className="font-mono text-xs"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  data-testid="input-token-search"
+                />
+              </div>
+
+              {searchLoading && (
+                <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Looking up token...
+                </div>
+              )}
+
+              {searchError && (
+                <div className="flex items-start gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                  <p className="text-destructive" data-testid="text-search-error">{searchError}</p>
+                </div>
+              )}
+
+              {searchResult && (
+                <Card>
+                  <CardContent className="pt-4">
+                    <div className="flex items-center justify-between gap-3 flex-wrap">
+                      <div className="space-y-1 min-w-0">
+                        <p className="text-sm font-medium">Token Found</p>
+                        <code className="text-xs font-mono text-muted-foreground break-all" data-testid="text-token-mint">
+                          {searchResult.mint}
+                        </code>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <Badge variant="secondary" className="text-xs">
+                            {searchResult.decimals} decimals
+                          </Badge>
+                          {searchResult.isToken2022 && (
+                            <Badge variant="outline" className="text-xs">Token-2022</Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground" data-testid="text-token-balance">
+                          Your balance: {formatNumber(searchResult.userBalance)} tokens
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Pool deposit: {formatNumber(searchResult.userBalance)} tokens + {(loadSettings().depositAmountSol / 2).toFixed(4)} SOL
+                        </p>
+                      </div>
+                      <Button
+                        onClick={handleOpenPosition}
+                        disabled={creatingPool || !walletAddress || searchResult.userBalance <= 0}
+                        data-testid="button-open-position"
+                      >
+                        {creatingPool ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                            Creating...
+                          </>
+                        ) : (
+                          <>
+                            <Droplets className="w-4 h-4 mr-2" />
+                            Open Position
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    {searchResult.userBalance <= 0 && (
+                      <p className="text-xs text-destructive mt-2">
+                        You need to hold this token in your wallet to create a pool.
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              )}
+
+              {poolError && (
+                <div className="flex items-start gap-2 text-sm">
+                  <AlertCircle className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                  <p className="text-destructive break-all" data-testid="text-pool-error">{poolError}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           <Button
             className="w-full"
+            variant="outline"
             size="lg"
-            onClick={() => setView("open-position")}
-            disabled={!walletAddress}
-            data-testid="button-open-position"
+            onClick={() => setView("settings")}
+            data-testid="button-settings"
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Open New Position
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
           </Button>
 
           <Card>
@@ -295,15 +610,13 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Fund your wallet with SOL (for gas) and the tokens you
-                  want to provide as liquidity.
+                  Configure your pool settings (fee schedule, deposit amount) via the Settings button.
                 </li>
                 <li>
-                  Click "Open New Position" and configure your pool parameters.
+                  Paste a token contract address in the search bar above.
                 </li>
                 <li>
-                  The app creates a custom Meteora DAMMv2 pool and opens your
-                  initial position in a single transaction.
+                  Click "Open Position" to create a Meteora DAMMv2 pool. Half your deposit stays as SOL, the other half is swapped into the token.
                 </li>
                 <li>View your transaction on Solscan to confirm.</li>
               </ol>
