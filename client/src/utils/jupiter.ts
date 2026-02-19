@@ -105,7 +105,7 @@ export async function executeJupiterSwap(
 
   const result = await wallet.signAndSendTransaction({
     transaction: swapTxBytes,
-    chain: { id: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" } as any,
+    chain: "solana:mainnet" as any,
     options: {
       skipPreflight: true,
       preflightCommitment: "confirmed",

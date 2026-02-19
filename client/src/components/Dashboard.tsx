@@ -331,7 +331,7 @@ export function Dashboard() {
 
       const result = await activeWallet.signAndSendTransaction({
         transaction: serializedTx,
-        chain: { id: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" } as any,
+        chain: "solana:mainnet" as any,
         options: {
           skipPreflight: false,
           preflightCommitment: "confirmed",

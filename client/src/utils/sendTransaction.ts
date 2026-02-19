@@ -11,7 +11,7 @@ export async function signAndSendPoolCreation(
   connection: Connection,
   transaction: Transaction,
   positionNftMint: Keypair,
-  chainId: string = "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+  chainId: string = "solana:mainnet"
 ): Promise<string> {
   const { blockhash, lastValidBlockHeight } =
     await connection.getLatestBlockhash();
@@ -28,7 +28,7 @@ export async function signAndSendPoolCreation(
   const result = await signTransaction({
     transaction: serializedTx,
     address: wallet.address,
-    chain: { id: chainId },
+    chain: chainId,
   });
 
   let rawSignedTx: Uint8Array;

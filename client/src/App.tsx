@@ -1,5 +1,6 @@
 import { PrivyProvider, usePrivy } from "@privy-io/react-auth";
 import { toSolanaWalletConnectors } from "@privy-io/react-auth/solana";
+import { createSolanaRpc, createSolanaRpcSubscriptions } from "@solana/kit";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -7,6 +8,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoginScreen } from "@/components/LoginScreen";
 import { Dashboard } from "@/components/Dashboard";
 import { Loader2, Droplets } from "lucide-react";
+
+const SOLANA_RPC_URL =
+  import.meta.env.VITE_SOLANA_RPC_URL ||
+  import.meta.env.VITE_GATEKEEPER_RPC_URL ||
+  "https://api.mainnet-beta.solana.com";
+
+const solanaRpc = createSolanaRpc(SOLANA_RPC_URL);
+const solanaRpcSubscriptions = createSolanaRpcSubscriptions(
+  SOLANA_RPC_URL.replace("https://", "wss://").replace("http://", "ws://")
+);
 
 let solanaConnectors: ReturnType<typeof toSolanaWalletConnectors> | undefined;
 try {
@@ -89,6 +100,14 @@ function App() {
           theme: "dark",
           accentColor: "#676FFF",
           walletChainType: "solana-only",
+        },
+        solana: {
+          rpcs: {
+            "solana:mainnet": {
+              rpc: solanaRpc as any,
+              rpcSubscriptions: solanaRpcSubscriptions as any,
+            },
+          },
         },
         embeddedWallets: {
           solana: {
