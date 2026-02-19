@@ -1,61 +1,50 @@
-import { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Save, Settings } from "lucide-react";
+import { Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const SETTINGS_KEY = "meteora-pool-settings";
 
-export const settingsSchema = z.object({
-  depositAmountSol: z.coerce.number().positive("Must be > 0").default(0.2),
-  baseFeeMode: z.string().default("1"),
-  startingFeeBps: z.coerce.number().min(0).max(10000).default(500),
-  endingFeeBps: z.coerce.number().min(0).max(10000).default(25),
-  feeDurationSeconds: z.coerce.number().min(1).default(300),
-  feeNumberOfPeriods: z.coerce.number().min(1).default(50),
-  enableDynamicFee: z.boolean().default(true),
-  dynamicFeeMaxBps: z.coerce.number().min(0).max(10000).default(25),
-  collectFeeMode: z.string().default("0"),
-  activationType: z.string().default("1"),
-  activateNow: z.boolean().default(true),
-});
-
-export type PoolSettingsValues = z.infer<typeof settingsSchema>;
+export interface PoolSettingsValues {
+  depositAmountSol: number;
+  baseFeeMode: string;
+  startingFeeBps: number;
+  endingFeeBps: number;
+  feeDurationSeconds: number;
+  feeNumberOfPeriods: number;
+  enableDynamicFee: boolean;
+  dynamicFeeMaxBps: number;
+  collectFeeMode: string;
+  activationType: string;
+  activateNow: boolean;
+  enableFeeScheduler: boolean;
+}
 
 const DEFAULT_SETTINGS: PoolSettingsValues = {
   depositAmountSol: 0.2,
   baseFeeMode: "1",
-  startingFeeBps: 500,
+  startingFeeBps: 100,
   endingFeeBps: 25,
   feeDurationSeconds: 300,
   feeNumberOfPeriods: 50,
   enableDynamicFee: true,
   dynamicFeeMaxBps: 25,
-  collectFeeMode: "0",
+  collectFeeMode: "2",
   activationType: "1",
   activateNow: true,
+  enableFeeScheduler: true,
 };
+
+const FEE_TIERS = [
+  { label: "0.25%", bps: 25 },
+  { label: "0.3%", bps: 30 },
+  { label: "1%", bps: 100 },
+  { label: "2%", bps: 200 },
+  { label: "4%", bps: 400 },
+  { label: "6%", bps: 600 },
+];
 
 export function loadSettings(): PoolSettingsValues {
   try {
@@ -72,24 +61,34 @@ function saveSettings(values: PoolSettingsValues) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(values));
 }
 
-const FEE_MODE_OPTIONS = [
-  { value: "0", label: "Linear Scheduler" },
-  { value: "1", label: "Exponential Scheduler" },
-  { value: "2", label: "Rate Limiter" },
-  { value: "3", label: "MarketCap Linear" },
-  { value: "4", label: "MarketCap Exponential" },
-];
+interface ToggleGroupProps {
+  options: { label: string; value: string }[];
+  value: string;
+  onChange: (value: string) => void;
+  testIdPrefix: string;
+}
 
-const COLLECT_FEE_OPTIONS = [
-  { value: "0", label: "Both Tokens" },
-  { value: "1", label: "Only Token A" },
-  { value: "2", label: "Only Token B" },
-];
-
-const ACTIVATION_OPTIONS = [
-  { value: "0", label: "Slot" },
-  { value: "1", label: "Timestamp" },
-];
+function ToggleGroup({ options, value, onChange, testIdPrefix }: ToggleGroupProps) {
+  return (
+    <div className="flex items-center gap-1 rounded-full border bg-muted/50 p-0.5">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          type="button"
+          onClick={() => onChange(opt.value)}
+          className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${
+            value === opt.value
+              ? "bg-foreground text-background"
+              : "text-muted-foreground hover-elevate"
+          }`}
+          data-testid={`${testIdPrefix}-${opt.value}`}
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  );
+}
 
 interface Props {
   onSaved: () => void;
@@ -97,308 +96,212 @@ interface Props {
 
 export function PoolSettings({ onSaved }: Props) {
   const { toast } = useToast();
-  const saved = loadSettings();
+  const [settings, setSettings] = useState<PoolSettingsValues>(loadSettings);
 
-  const form = useForm<PoolSettingsValues>({
-    resolver: zodResolver(settingsSchema),
-    defaultValues: saved,
-  });
+  const update = <K extends keyof PoolSettingsValues>(key: K, value: PoolSettingsValues[K]) => {
+    setSettings((prev) => ({ ...prev, [key]: value }));
+  };
 
-  const onSubmit = (values: PoolSettingsValues) => {
-    saveSettings(values);
-    toast({
-      title: "Settings Saved",
-      description: "Your pool configuration has been saved.",
-    });
+  const handleSave = () => {
+    if (settings.depositAmountSol <= 0) {
+      toast({ title: "Invalid", description: "Deposit must be greater than 0.", variant: "destructive" });
+      return;
+    }
+    saveSettings(settings);
+    toast({ title: "Settings Saved", description: "Your pool configuration has been saved." });
     onSaved();
   };
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Settings className="w-4 h-4 text-primary" />
-              Deposit Amount
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <FormField
-              control={form.control}
-              name="depositAmountSol"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Total Deposit (SOL)</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="0.2"
-                      data-testid="input-deposit-amount"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormDescription className="text-xs">
-                    Half ({((field.value || 0) / 2).toFixed(4)} SOL) will be swapped into the token, and the other half deposited as SOL into the pool.
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Fee Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <FormField
-              control={form.control}
-              name="baseFeeMode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Fee Mode</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-fee-mode">
-                        <SelectValue placeholder="Select fee mode" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {FEE_MODE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="startingFeeBps"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Starting Fee (bps)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-starting-fee"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      {(field.value / 100).toFixed(2)}%
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endingFeeBps"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Ending Fee (bps)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-ending-fee"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      {(field.value / 100).toFixed(2)}%
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+    <div className="space-y-4">
+      <Card>
+        <CardContent className="pt-5 space-y-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Deposit Amount</p>
+              <p className="text-xs text-muted-foreground">
+                SOL to deposit ({(settings.depositAmountSol / 2).toFixed(4)} swapped to token)
+              </p>
             </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="feeDurationSeconds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Duration (seconds)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-fee-duration"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
+            <div className="flex items-center gap-1.5">
+              <Input
+                type="number"
+                step="any"
+                value={settings.depositAmountSol}
+                onChange={(e) => update("depositAmountSol", parseFloat(e.target.value) || 0)}
+                className="w-24 text-right text-sm font-mono"
+                data-testid="input-deposit-amount"
               />
-
-              <FormField
-                control={form.control}
-                name="feeNumberOfPeriods"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Number of Periods</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-fee-periods"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <span className="text-xs text-muted-foreground font-medium">SOL</span>
             </div>
+          </div>
 
-            <div className="space-y-3 pt-1">
-              <FormField
-                control={form.control}
-                name="enableDynamicFee"
-                render={({ field }) => (
-                  <FormItem className="flex items-center justify-between gap-2">
-                    <div>
-                      <FormLabel className="text-xs">Enable Dynamic Fee</FormLabel>
-                      <FormDescription className="text-xs">
-                        Automatically adjust fees based on volatility
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                        data-testid="switch-dynamic-fee"
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
+          <div className="h-px bg-border" />
 
-              {form.watch("enableDynamicFee") && (
-                <FormField
-                  control={form.control}
-                  name="dynamicFeeMaxBps"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Dynamic Fee Max (bps)</FormLabel>
-                      <FormControl>
-                        <Input
-                          type="number"
-                          data-testid="input-dynamic-fee-max"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription className="text-xs">
-                        {(field.value / 100).toFixed(2)}%
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Fee Tier</p>
+              <p className="text-xs text-muted-foreground">Starting fee for the pool</p>
+            </div>
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              {FEE_TIERS.map((tier) => (
+                <button
+                  key={tier.bps}
+                  type="button"
+                  onClick={() => update("startingFeeBps", tier.bps)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                    settings.startingFeeBps === tier.bps
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 border text-muted-foreground hover-elevate"
+                  }`}
+                  data-testid={`button-fee-tier-${tier.bps}`}
+                >
+                  {tier.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Dynamic Fee</p>
+              <p className="text-xs text-muted-foreground">Adjust fees based on volatility</p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "No", value: "no" },
+                { label: "Yes", value: "yes" },
+              ]}
+              value={settings.enableDynamicFee ? "yes" : "no"}
+              onChange={(v) => update("enableDynamicFee", v === "yes")}
+              testIdPrefix="toggle-dynamic-fee"
+            />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Fee Collection Token</p>
+              <p className="text-xs text-muted-foreground">Which token(s) to collect fees in</p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "SOL", value: "2" },
+                { label: "Both", value: "0" },
+              ]}
+              value={settings.collectFeeMode}
+              onChange={(v) => update("collectFeeMode", v)}
+              testIdPrefix="toggle-collect-fee"
+            />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Fee Scheduler</p>
+              <p className="text-xs text-muted-foreground">Gradually reduce fees over time</p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "No", value: "no" },
+                { label: "Yes", value: "yes" },
+              ]}
+              value={settings.enableFeeScheduler ? "yes" : "no"}
+              onChange={(v) => update("enableFeeScheduler", v === "yes")}
+              testIdPrefix="toggle-fee-scheduler"
+            />
+          </div>
+
+          {settings.enableFeeScheduler && (
+            <>
+              <div className="h-px bg-border" />
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Fee Scheduler Mode</p>
+                  <p className="text-xs text-muted-foreground">How fees decrease over time</p>
+                </div>
+                <ToggleGroup
+                  options={[
+                    { label: "Exponential", value: "1" },
+                    { label: "Linear", value: "0" },
+                  ]}
+                  value={settings.baseFeeMode}
+                  onChange={(v) => update("baseFeeMode", v)}
+                  testIdPrefix="toggle-fee-mode"
                 />
-              )}
-            </div>
-          </CardContent>
-        </Card>
+              </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Pool Settings</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <FormField
-              control={form.control}
-              name="collectFeeMode"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Collect Fee Mode</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-collect-fee-mode">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {COLLECT_FEE_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="h-px bg-border" />
 
-            <FormField
-              control={form.control}
-              name="activationType"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-xs">Activation Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger data-testid="select-activation-type">
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {ACTIVATION_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Ending Fee</p>
+                  <p className="text-xs text-muted-foreground">Fee after schedule completes</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={settings.endingFeeBps}
+                    onChange={(e) => update("endingFeeBps", parseInt(e.target.value) || 0)}
+                    className="w-20 text-right text-sm font-mono"
+                    data-testid="input-ending-fee"
+                  />
+                  <span className="text-xs text-muted-foreground font-medium">bps</span>
+                </div>
+              </div>
 
-            <FormField
-              control={form.control}
-              name="activateNow"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between gap-2">
-                  <div>
-                    <FormLabel className="text-xs">Activate Immediately</FormLabel>
-                    <FormDescription className="text-xs">
-                      Pool becomes active right after creation
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="switch-activate-now"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </CardContent>
-        </Card>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Duration</p>
+                  <p className="text-xs text-muted-foreground">Time to reach ending fee</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={settings.feeDurationSeconds}
+                    onChange={(e) => update("feeDurationSeconds", parseInt(e.target.value) || 1)}
+                    className="w-20 text-right text-sm font-mono"
+                    data-testid="input-fee-duration"
+                  />
+                  <span className="text-xs text-muted-foreground font-medium">sec</span>
+                </div>
+              </div>
 
-        <Button
-          type="submit"
-          className="w-full"
-          size="lg"
-          data-testid="button-save-settings"
-        >
-          <Save className="w-4 h-4 mr-2" />
-          Save Settings
-        </Button>
-      </form>
-    </Form>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Periods</p>
+                  <p className="text-xs text-muted-foreground">Number of fee steps</p>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Input
+                    type="number"
+                    value={settings.feeNumberOfPeriods}
+                    onChange={(e) => update("feeNumberOfPeriods", parseInt(e.target.value) || 1)}
+                    className="w-20 text-right text-sm font-mono"
+                    data-testid="input-fee-periods"
+                  />
+                </div>
+              </div>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Button
+        type="button"
+        className="w-full"
+        size="lg"
+        onClick={handleSave}
+        data-testid="button-save-settings"
+      >
+        <Save className="w-4 h-4 mr-2" />
+        Save Settings
+      </Button>
+    </div>
   );
 }

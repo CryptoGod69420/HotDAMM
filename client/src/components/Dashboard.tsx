@@ -229,13 +229,20 @@ export function Dashboard() {
 
       const baseFeeParams = getBaseFeeParams(
         {
-          baseFeeMode: baseFeeModeNum,
-          feeTimeSchedulerParam: {
-            startingFeeBps: settings.startingFeeBps,
-            endingFeeBps: settings.endingFeeBps,
-            numberOfPeriod: settings.feeNumberOfPeriods,
-            totalDuration: settings.feeDurationSeconds,
-          },
+          baseFeeMode: settings.enableFeeScheduler ? baseFeeModeNum : (0 as BaseFeeMode),
+          feeTimeSchedulerParam: settings.enableFeeScheduler
+            ? {
+                startingFeeBps: settings.startingFeeBps,
+                endingFeeBps: settings.endingFeeBps,
+                numberOfPeriod: settings.feeNumberOfPeriods,
+                totalDuration: settings.feeDurationSeconds,
+              }
+            : {
+                startingFeeBps: settings.startingFeeBps,
+                endingFeeBps: settings.startingFeeBps,
+                numberOfPeriod: 1,
+                totalDuration: 1,
+              },
         },
         searchResult.decimals,
         activationTypeNum === 1
