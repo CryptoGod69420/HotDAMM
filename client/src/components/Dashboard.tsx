@@ -854,16 +854,39 @@ export function Dashboard() {
               )}
 
               {isCreating && (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2 text-sm">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
-                    <span data-testid="text-creation-step">{stepLabel(creationStep)}</span>
-                  </div>
-                  <div className="flex gap-1">
-                    <div className={`h-1 flex-1 rounded-md ${creationStep === "swapping" || creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
-                    <div className={`h-1 flex-1 rounded-md ${creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
-                    <div className={`h-1 flex-1 rounded-md ${creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
-                  </div>
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/80 backdrop-blur-sm" data-testid="overlay-creating">
+                  <Card className="w-full max-w-sm mx-4">
+                    <CardContent className="pt-6 space-y-5">
+                      <div className="flex flex-col items-center gap-3">
+                        <div className="relative w-14 h-14 flex items-center justify-center">
+                          <div className="absolute inset-0 rounded-full border-2 border-primary/20" />
+                          <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                        </div>
+                        <p className="text-base font-semibold text-center">Opening Position</p>
+                        <p className="text-sm text-muted-foreground text-center" data-testid="text-creation-step">
+                          {stepLabel(creationStep)}
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-xs text-muted-foreground">
+                          <span>Progress</span>
+                          <span>
+                            Step {creationStep === "swapping" ? "1" : creationStep === "creating-pool" ? "2" : "3"} of 3
+                          </span>
+                        </div>
+                        <div className="flex gap-1.5">
+                          <div className={`h-2 flex-1 rounded-md transition-colors ${creationStep === "swapping" || creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                          <div className={`h-2 flex-1 rounded-md transition-colors ${creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                          <div className={`h-2 flex-1 rounded-md transition-colors ${creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-muted-foreground text-center">
+                        Please do not close this page while the transaction is processing.
+                      </p>
+                    </CardContent>
+                  </Card>
                 </div>
               )}
 

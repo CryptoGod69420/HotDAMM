@@ -4,6 +4,14 @@ import Decimal from "decimal.js";
 
 const JUPITER_API = "https://api.jup.ag/swap/v1";
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
+const API_KEY = import.meta.env.VITE_JUPITER_API_KEY || "";
+
+function jupiterHeaders(json = false): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (API_KEY) h["x-api-key"] = API_KEY;
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
 
 export interface JupiterQuote {
   inputMint: string;
@@ -40,7 +48,9 @@ export async function getJupiterQuote(
     swapMode: "ExactIn",
   });
 
-  const res = await fetch(`${JUPITER_API}/quote?${params}`);
+  const res = await fetch(`${JUPITER_API}/quote?${params}`, {
+    headers: jupiterHeaders(),
+  });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(`Jupiter quote failed: ${text}`);
@@ -55,7 +65,7 @@ export async function getJupiterSwapTransaction(
 ): Promise<Uint8Array> {
   const res = await fetch(`${JUPITER_API}/swap`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: jupiterHeaders(true),
     body: JSON.stringify({
       quoteResponse,
       userPublicKey,
