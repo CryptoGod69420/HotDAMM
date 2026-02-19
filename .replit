@@ -37,3 +37,9 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
+
+[userenv]
+
+[userenv.shared]
+VITE_PRIVY_APP_ID = "cmlstt4w300mg0djvovqxt500"
+VITE_SOLANA_RPC_URL = "https://api.devnet.solana.com"
