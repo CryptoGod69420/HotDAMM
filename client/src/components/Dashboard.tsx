@@ -24,6 +24,7 @@ import {
   Loader2,
   ArrowLeft,
   CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -38,10 +39,11 @@ export function Dashboard() {
   const [view, setView] = useState<View>("dashboard");
   const [copied, setCopied] = useState(false);
   const [lastTxSignature, setLastTxSignature] = useState<string | null>(null);
+  const [walletTimeout, setWalletTimeout] = useState(false);
   const { toast } = useToast();
 
-  const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
-  const walletAddress = embeddedWallet?.address;
+  const activeWallet = wallets.find((w) => w.address) || null;
+  const walletAddress = activeWallet?.address;
 
   const fetchBalance = async () => {
     if (!walletAddress) return;
@@ -60,6 +62,14 @@ export function Dashboard() {
   useEffect(() => {
     if (walletAddress) {
       fetchBalance();
+      setWalletTimeout(false);
+    }
+  }, [walletAddress]);
+
+  useEffect(() => {
+    if (!walletAddress) {
+      const timer = setTimeout(() => setWalletTimeout(true), 10000);
+      return () => clearTimeout(timer);
     }
   }, [walletAddress]);
 
@@ -143,7 +153,7 @@ export function Dashboard() {
             <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
               <CardTitle className="text-sm font-medium flex items-center gap-2">
                 <Wallet className="w-4 h-4 text-muted-foreground" />
-                Embedded Wallet
+                Connected Wallet
               </CardTitle>
               <Badge variant="outline" className="text-xs">
                 Mainnet
@@ -151,10 +161,28 @@ export function Dashboard() {
             </CardHeader>
             <CardContent className="space-y-3">
               {!walletAddress ? (
-                <div className="flex items-center gap-2 text-muted-foreground text-sm">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading wallet...
-                </div>
+                walletTimeout ? (
+                  <div className="space-y-2">
+                    <div className="flex items-start gap-2 text-muted-foreground text-sm">
+                      <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                      <p>No wallet detected. Make sure your wallet extension is connected and try refreshing the page.</p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.location.reload()}
+                      data-testid="button-refresh-page"
+                    >
+                      <RefreshCw className="w-3 h-3 mr-1" />
+                      Refresh
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Connecting wallet...
+                  </div>
+                )
               ) : (
                 <>
                   <div className="flex items-center gap-2 flex-wrap">
@@ -267,7 +295,7 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Fund your embedded wallet with SOL (for gas) and the tokens you
+                  Fund your wallet with SOL (for gas) and the tokens you
                   want to provide as liquidity.
                 </li>
                 <li>

@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Keypair, PublicKey, Transaction } from "@solana/web3.js";
+import bs58 from "bs58";
 import { TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -15,7 +16,7 @@ import {
   BaseFeeMode,
   ActivationType,
 } from "@meteora-ag/cp-amm-sdk";
-import { useWallets, useSignTransaction } from "@privy-io/react-auth/solana";
+import { useWallets } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { getTokenMintInfo } from "@/utils/tokenUtils";
@@ -87,13 +88,12 @@ interface Props {
 export function OpenPositionForm({ onSuccess }: Props) {
   const connection = useConnection();
   const { wallets } = useWallets();
-  const { signTransaction } = useSignTransaction();
   const cpAmm = useCpAmm();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const embeddedWallet = wallets.find((w) => w.walletClientType === "privy");
+  const activeWallet = wallets.find((w) => w.address) || null;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -116,7 +116,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
   });
 
   const onSubmit = async (values: FormValues) => {
-    if (!embeddedWallet) {
+    if (!activeWallet) {
       setError("No wallet connected");
       return;
     }
@@ -125,7 +125,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
     setError(null);
 
     try {
-      const walletPublicKey = new PublicKey(embeddedWallet.address);
+      const walletPublicKey = new PublicKey(activeWallet.address);
       const tokenAMint = new PublicKey(values.tokenAMint);
       const tokenBMint = new PublicKey(values.tokenBMint);
 
@@ -175,7 +175,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
 
       const dynamicFeeParams = values.enableDynamicFee
         ? getDynamicFeeParams(values.dynamicFeeMaxBps)
-        : undefined;
+        : null;
 
       const poolFees = {
         baseFee: baseFeeParams,
@@ -219,27 +219,19 @@ export function OpenPositionForm({ onSuccess }: Props) {
         verifySignatures: false,
       });
 
-      const chainId = "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp";
-
-      const result = await signTransaction({
+      const result = await activeWallet.signAndSendTransaction({
         transaction: serializedTx,
-        address: embeddedWallet.address,
-        chain: { id: chainId } as any,
+        chain: { id: "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" } as any,
+        options: {
+          skipPreflight: false,
+          preflightCommitment: "confirmed",
+        } as any,
       });
 
-      let rawSignedTx: Uint8Array;
-      if (result.signedTransaction instanceof Uint8Array) {
-        rawSignedTx = result.signedTransaction;
-      } else if (typeof result.signedTransaction === "object" && result.signedTransaction !== null) {
-        rawSignedTx = new Uint8Array(Object.values(result.signedTransaction));
-      } else {
-        rawSignedTx = new Uint8Array(result.signedTransaction as any);
-      }
-
-      const txid = await connection.sendRawTransaction(rawSignedTx, {
-        skipPreflight: false,
-        preflightCommitment: "confirmed",
-      });
+      const signatureBytes = result.signature;
+      const txid = typeof signatureBytes === "string"
+        ? signatureBytes
+        : bs58.encode(signatureBytes);
 
       await connection.confirmTransaction(
         { signature: txid, blockhash, lastValidBlockHeight },
@@ -614,7 +606,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
           type="submit"
           className="w-full"
           size="lg"
-          disabled={submitting || !embeddedWallet}
+          disabled={submitting || !activeWallet}
           data-testid="button-submit-position"
         >
           {submitting ? (

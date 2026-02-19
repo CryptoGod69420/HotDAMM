@@ -91,9 +91,10 @@ function App() {
           walletChainType: "solana-only",
         },
         embeddedWallets: {
-          createOnLogin: "all-users",
-          requireUserPasswordOnCreate: false,
-          noPromptOnSignature: false,
+          solana: {
+            createOnLogin: "all-users",
+          },
+          showWalletUIs: false,
         },
         externalWallets: {
           solana: {
