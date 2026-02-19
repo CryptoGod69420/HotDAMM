@@ -2,7 +2,7 @@ import { Connection, VersionedTransaction, PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import Decimal from "decimal.js";
 
-const JUPITER_API = "https://quote-api.jup.ag/v6";
+const JUPITER_API = "https://api.jup.ag/swap/v1";
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
 export interface JupiterQuote {
