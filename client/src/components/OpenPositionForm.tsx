@@ -40,7 +40,7 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { Loader2, AlertCircle, Droplets } from "lucide-react";
+import { Loader2, AlertCircle, Coins } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
@@ -283,7 +283,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm font-medium flex items-center gap-2">
-              <Droplets className="w-4 h-4 text-primary" />
+              <Coins className="w-4 h-4 text-primary" />
               Token Pair
             </CardTitle>
           </CardHeader>
@@ -640,7 +640,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
             </>
           ) : (
             <>
-              <Droplets className="w-4 h-4 mr-2" />
+              <Coins className="w-4 h-4 mr-2" />
               Open Position
             </>
           )}

@@ -2,7 +2,8 @@ import { usePrivy } from "@privy-io/react-auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "./ThemeToggle";
-import { Loader2, Wallet, Droplets } from "lucide-react";
+import { Loader2, Wallet } from "lucide-react";
+import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 
 export function LoginScreen() {
   const { login, ready } = usePrivy();
@@ -11,8 +12,8 @@ export function LoginScreen() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between gap-2 p-4 border-b">
         <div className="flex items-center gap-2">
-          <Droplets className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm">Meteora Position Opener</span>
+          <img src={hotDammLogo} alt="Hot DAMM!" className="w-7 h-7" />
+          <span className="font-semibold text-sm">Hot DAMM!</span>
         </div>
         <ThemeToggle />
       </header>
@@ -20,11 +21,9 @@ export function LoginScreen() {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-md bg-primary/10 mb-4">
-              <Droplets className="w-8 h-8 text-primary" />
-            </div>
+            <img src={hotDammLogo} alt="Hot DAMM!" className="w-24 h-24 mx-auto mb-2" />
             <h1 className="text-2xl font-bold tracking-tight">
-              Meteora DAMMv2
+              Hot DAMM!
             </h1>
             <p className="text-muted-foreground text-sm max-w-sm mx-auto">
               Open custom liquidity positions on Meteora's constant-product AMM with one click.
@@ -77,6 +76,10 @@ export function LoginScreen() {
           </div>
         </div>
       </div>
+
+      <footer className="p-4 text-center text-xs text-muted-foreground">
+        made with ❤️ by krispy.
+      </footer>
     </div>
   );
 }

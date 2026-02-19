@@ -38,8 +38,8 @@ import {
   getTokenMintInfo,
 } from "@/utils/tokenUtils";
 import { executeJupiterSwap } from "@/utils/jupiter";
+import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 import {
-  Droplets,
   LogOut,
   Copy,
   ExternalLink,
@@ -495,8 +495,8 @@ export function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
         <div className="flex items-center gap-2">
-          <Droplets className="w-5 h-5 text-primary" />
-          <span className="font-semibold text-sm">Meteora Position Opener</span>
+          <img src={hotDammLogo} alt="Hot DAMM!" className="w-7 h-7" />
+          <span className="font-semibold text-sm">Hot DAMM!</span>
         </div>
 
         <div
@@ -878,7 +878,7 @@ export function Dashboard() {
                           </>
                         ) : (
                           <>
-                            <Droplets className="w-4 h-4 mr-2" />
+                            <Coins className="w-4 h-4 mr-2" />
                             Open Position
                           </>
                         )}
@@ -968,6 +968,10 @@ export function Dashboard() {
 
         </div>
       </main>
+
+      <footer className="p-4 text-center text-xs text-muted-foreground">
+        made with ❤️ by krispy.
+      </footer>
     </div>
   );
 }

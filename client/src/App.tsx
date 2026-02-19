@@ -7,7 +7,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { LoginScreen } from "@/components/LoginScreen";
 import { Dashboard } from "@/components/Dashboard";
-import { Loader2, Droplets } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 
 const SOLANA_RPC_URL =
   import.meta.env.VITE_SOLANA_RPC_URL ||
@@ -32,7 +33,7 @@ function AppContent() {
   if (!ready) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-3">
-        <Droplets className="w-8 h-8 text-primary animate-pulse" />
+        <img src={hotDammLogo} alt="Hot DAMM!" className="w-16 h-16 animate-pulse" />
         <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
@@ -53,7 +54,7 @@ function App() {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
         <div className="max-w-md text-center space-y-4">
-          <Droplets className="w-10 h-10 text-primary mx-auto" />
+          <img src={hotDammLogo} alt="Hot DAMM!" className="w-16 h-16 mx-auto" />
           <h1 className="text-xl font-bold">Setup Required</h1>
           <p className="text-sm text-muted-foreground">
             Add your Privy App ID to the environment variable{" "}
@@ -98,7 +99,7 @@ function App() {
         loginMethods: ["email", "google", "twitter", "discord", "wallet"],
         appearance: {
           theme: "dark",
-          accentColor: "#676FFF",
+          accentColor: "#E85D15",
           walletChainType: "solana-only",
         },
         solana: {
