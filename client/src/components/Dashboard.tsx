@@ -28,6 +28,7 @@ import {
   getSolscanAccountUrl,
   getTokenMintInfo,
 } from "@/utils/tokenUtils";
+import { executeJupiterSwap } from "@/utils/jupiter";
 import {
   Droplets,
   LogOut,
@@ -53,9 +54,9 @@ interface TokenSearchResult {
   decimals: number;
   tokenProgram: PublicKey;
   isToken2022: boolean;
-  userBalance: number;
-  rawBalance: BN;
 }
+
+type CreationStep = "idle" | "swapping" | "creating-pool" | "confirming" | "done";
 
 export function Dashboard() {
   const { logout, user } = usePrivy();
@@ -74,11 +75,12 @@ export function Dashboard() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchResult, setSearchResult] = useState<TokenSearchResult | null>(null);
   const [searchError, setSearchError] = useState<string | null>(null);
-  const [creatingPool, setCreatingPool] = useState(false);
+  const [creationStep, setCreationStep] = useState<CreationStep>("idle");
   const [poolError, setPoolError] = useState<string | null>(null);
 
   const activeWallet = wallets.find((w) => w.address) || null;
   const walletAddress = activeWallet?.address;
+  const isCreating = creationStep !== "idle" && creationStep !== "done";
 
   const fetchBalance = async () => {
     if (!walletAddress) return;
@@ -125,39 +127,16 @@ export function Dashboard() {
     setSearchResult(null);
     setSearchError(null);
     setPoolError(null);
+    setCreationStep("idle");
 
     try {
       const mintPk = new PublicKey(trimmed);
       const info = await getTokenMintInfo(connection, mintPk);
-
-      let userBalance = 0;
-      let rawBalance = new BN(0);
-      if (walletAddress) {
-        try {
-          const ata = await getAssociatedTokenAddress(
-            mintPk,
-            new PublicKey(walletAddress),
-            false,
-            info.tokenProgram
-          );
-          const account = await getAccount(connection, ata, "confirmed", info.tokenProgram);
-          rawBalance = new BN(account.amount.toString());
-          userBalance = new Decimal(rawBalance.toString())
-            .div(new Decimal(10).pow(info.decimals))
-            .toNumber();
-        } catch {
-          userBalance = 0;
-          rawBalance = new BN(0);
-        }
-      }
-
       setSearchResult({
         mint: trimmed,
         decimals: info.decimals,
         tokenProgram: info.tokenProgram,
         isToken2022: info.isToken2022,
-        userBalance,
-        rawBalance,
       });
     } catch (e: any) {
       setSearchError(e?.message || "Invalid token address or token not found");
@@ -179,28 +158,46 @@ export function Dashboard() {
   const handleOpenPosition = async () => {
     if (!activeWallet || !searchResult) return;
 
-    setCreatingPool(true);
+    setCreationStep("swapping");
     setPoolError(null);
 
     try {
       const settings = loadSettings();
       const walletPublicKey = new PublicKey(activeWallet.address);
-
       const solMint = new PublicKey(WSOL_MINT);
       const tokenMint = new PublicKey(searchResult.mint);
-
       const halfSol = settings.depositAmountSol / 2;
 
-      const solInfo = await getTokenMintInfo(connection, solMint);
+      const swapResult = await executeJupiterSwap(
+        connection,
+        activeWallet,
+        searchResult.mint,
+        halfSol,
+        100
+      );
 
+      console.log("Jupiter swap complete:", swapResult.signature);
+
+      setCreationStep("creating-pool");
+
+      const ata = await getAssociatedTokenAddress(
+        tokenMint,
+        walletPublicKey,
+        false,
+        searchResult.tokenProgram
+      );
+      const tokenAccount = await getAccount(connection, ata, "confirmed", searchResult.tokenProgram);
+      const tokenAmountBN = new BN(tokenAccount.amount.toString());
+
+      console.log("Actual token balance after swap:", tokenAmountBN.toString());
+
+      const solInfo = await getTokenMintInfo(connection, solMint);
       const solAmountBN = new BN(
         new Decimal(halfSol)
           .mul(new Decimal(10).pow(solInfo.decimals))
           .floor()
           .toFixed(0)
       );
-
-      const tokenAmountBN = searchResult.rawBalance;
 
       const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
         tokenAAmount: tokenAmountBN,
@@ -222,7 +219,7 @@ export function Dashboard() {
             totalDuration: settings.feeDurationSeconds,
           },
         },
-        solInfo.decimals,
+        searchResult.decimals,
         activationTypeNum === 1
           ? ActivationType.Timestamp
           : ActivationType.Slot
@@ -283,6 +280,8 @@ export function Dashboard() {
         } as any,
       });
 
+      setCreationStep("confirming");
+
       const signatureBytes = result.signature;
       const txid = typeof signatureBytes === "string"
         ? signatureBytes
@@ -293,25 +292,38 @@ export function Dashboard() {
         "confirmed"
       );
 
+      setCreationStep("done");
       setLastTxSignature(txid);
       setSearchInput("");
       setSearchResult(null);
       fetchBalance();
       toast({
         title: "Position Opened",
-        description: "Your liquidity position was created successfully.",
+        description: "Pool created and liquidity deposited successfully.",
       });
     } catch (e: any) {
-      console.error("Transaction failed:", e);
+      console.error("Pool creation failed:", e);
       const msg = e?.message || "Transaction failed";
       setPoolError(msg);
+      setCreationStep("idle");
       toast({
         title: "Transaction Failed",
         description: msg.slice(0, 200),
         variant: "destructive",
       });
-    } finally {
-      setCreatingPool(false);
+    }
+  };
+
+  const stepLabel = (step: CreationStep) => {
+    switch (step) {
+      case "swapping":
+        return "Swapping SOL into token via Jupiter...";
+      case "creating-pool":
+        return "Creating Meteora DAMMv2 pool...";
+      case "confirming":
+        return "Confirming transaction on-chain...";
+      default:
+        return "";
     }
   };
 
@@ -508,15 +520,14 @@ export function Dashboard() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Paste token contract address..."
-                  className="font-mono text-xs"
-                  value={searchInput}
-                  onChange={(e) => setSearchInput(e.target.value)}
-                  data-testid="input-token-search"
-                />
-              </div>
+              <Input
+                placeholder="Paste token contract address..."
+                className="font-mono text-xs"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                disabled={isCreating}
+                data-testid="input-token-search"
+              />
 
               {searchLoading && (
                 <div className="flex items-center gap-2 text-muted-foreground text-sm">
@@ -549,22 +560,19 @@ export function Dashboard() {
                             <Badge variant="outline" className="text-xs">Token-2022</Badge>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground" data-testid="text-token-balance">
-                          Your balance: {formatNumber(searchResult.userBalance)} tokens
-                        </p>
                         <p className="text-xs text-muted-foreground">
-                          Pool deposit: {formatNumber(searchResult.userBalance)} tokens + {(loadSettings().depositAmountSol / 2).toFixed(4)} SOL
+                          Deposit: {loadSettings().depositAmountSol} SOL total ({(loadSettings().depositAmountSol / 2).toFixed(4)} SOL kept + {(loadSettings().depositAmountSol / 2).toFixed(4)} SOL swapped to token)
                         </p>
                       </div>
                       <Button
                         onClick={handleOpenPosition}
-                        disabled={creatingPool || !walletAddress || searchResult.userBalance <= 0}
+                        disabled={isCreating || !walletAddress}
                         data-testid="button-open-position"
                       >
-                        {creatingPool ? (
+                        {isCreating ? (
                           <>
                             <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            Creating...
+                            Working...
                           </>
                         ) : (
                           <>
@@ -574,13 +582,22 @@ export function Dashboard() {
                         )}
                       </Button>
                     </div>
-                    {searchResult.userBalance <= 0 && (
-                      <p className="text-xs text-destructive mt-2">
-                        You need to hold this token in your wallet to create a pool.
-                      </p>
-                    )}
                   </CardContent>
                 </Card>
+              )}
+
+              {isCreating && (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin text-primary shrink-0" />
+                    <span data-testid="text-creation-step">{stepLabel(creationStep)}</span>
+                  </div>
+                  <div className="flex gap-1">
+                    <div className={`h-1 flex-1 rounded-md ${creationStep === "swapping" || creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                    <div className={`h-1 flex-1 rounded-md ${creationStep === "creating-pool" || creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                    <div className={`h-1 flex-1 rounded-md ${creationStep === "confirming" ? "bg-primary" : "bg-muted"}`} />
+                  </div>
+                </div>
               )}
 
               {poolError && (
@@ -597,6 +614,7 @@ export function Dashboard() {
             variant="outline"
             size="lg"
             onClick={() => setView("settings")}
+            disabled={isCreating}
             data-testid="button-settings"
           >
             <Settings className="w-4 h-4 mr-2" />
@@ -610,13 +628,13 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Configure your pool settings (fee schedule, deposit amount) via the Settings button.
+                  Configure your fee schedule and deposit amount in Settings.
                 </li>
                 <li>
-                  Paste a token contract address in the search bar above.
+                  Paste a token contract address in the search bar.
                 </li>
                 <li>
-                  Click "Open Position" to create a Meteora DAMMv2 pool. Half your deposit stays as SOL, the other half is swapped into the token.
+                  Click "Open Position" &mdash; the app automatically swaps half your SOL into the token via Jupiter, then creates a Meteora DAMMv2 pool with both sides.
                 </li>
                 <li>View your transaction on Solscan to confirm.</li>
               </ol>

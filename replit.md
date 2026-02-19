@@ -7,6 +7,7 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 - **Frontend-only** application (no backend/database needed for core functionality)
 - Express server handles serving the Vite frontend
 - Privy for authentication + embedded Solana wallets
+- Jupiter v6 API for SOL-to-token swaps
 - Meteora CP-AMM SDK for pool creation
 - Solana web3.js for blockchain interactions
 
@@ -19,6 +20,7 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 - `client/src/hooks/useConnection.ts` - Solana RPC connection singleton
 - `client/src/hooks/useCpAmm.ts` - Meteora CpAmm SDK instance
 - `client/src/hooks/useTheme.ts` - Theme state management
+- `client/src/utils/jupiter.ts` - Jupiter v6 swap API (quote + swap execution)
 - `client/src/utils/tokenUtils.ts` - Token mint info, formatting utilities
 - `client/src/polyfills.ts` - Buffer/process/global polyfills for Solana SDK
 
@@ -28,15 +30,20 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 3. User clicks "Settings" to preconfigure fee schedule, deposit amount (SOL), and pool parameters - saved to localStorage
 4. User pastes a token contract address (CA) in the search bar
 5. Token info appears with an "Open Position" button
-6. Clicking "Open Position" creates a Meteora DAMMv2 pool: half the deposit stays as SOL, the other half is the token amount (both deposited into the pool)
+6. Clicking "Open Position" triggers a 2-step automated process:
+   a. Jupiter swaps half the SOL deposit into the target token
+   b. Meteora DAMMv2 pool is created with the swapped tokens + remaining SOL
 
 ## Technical Notes
+- User only needs SOL in wallet - the app handles token acquisition via Jupiter swap
+- Jupiter v6 API (https://quote-api.jup.ag/v6) handles SOL→token swaps with dynamic priority fees
 - Privy Solana hooks (`useWallets`) are imported from `@privy-io/react-auth/solana` (subpath export)
 - `@solana-program/memo` is stubbed locally (peer dep of Privy, version conflict with @solana/kit v5)
 - Buffer/process/global polyfills required for @coral-xyz/anchor (used by Meteora SDK)
 - `toSolanaWalletConnectors()` generates a non-fatal "Invalid hook call" warning from browser wallet extension detection - this is expected
 - Pool creation uses `Keypair.generate()` for positionNftMint, partial-signed before Privy wallet signs
 - All token amounts use BN (BigNumber), scaled by token decimals
+- Pool creation flow requires 2 transactions: Jupiter swap + Meteora pool creation
 
 ## Environment Variables
 - `VITE_PRIVY_APP_ID` - Required. Privy application ID from dashboard.privy.io
