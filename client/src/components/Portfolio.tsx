@@ -188,12 +188,14 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
       }
 
       const mintDecimals: Record<string, number> = {};
-      const allMintsObj: Record<string, boolean> = {};
+      const mintPrograms: Record<string, PublicKey> = {};
       Object.values(poolStates).forEach((ps: any) => {
-        allMintsObj[ps.tokenAMint.toBase58()] = true;
-        allMintsObj[ps.tokenBMint.toBase58()] = true;
+        const mintA = ps.tokenAMint.toBase58();
+        const mintB = ps.tokenBMint.toBase58();
+        mintPrograms[mintA] = ps.tokenAProgram;
+        mintPrograms[mintB] = ps.tokenBProgram;
       });
-      const allMints = Object.keys(allMintsObj);
+      const allMints = Object.keys(mintPrograms);
 
       for (const mint of allMints) {
         if (mint === WSOL_MINT) {
@@ -201,10 +203,20 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
           continue;
         }
         try {
-          const mintInfo = await getMint(connection, new PublicKey(mint));
+          const mintInfo = await getMint(connection, new PublicKey(mint), undefined, mintPrograms[mint]);
           mintDecimals[mint] = mintInfo.decimals;
         } catch {
-          mintDecimals[mint] = 9;
+          try {
+            const acctInfo = await connection.getParsedAccountInfo(new PublicKey(mint));
+            const parsed = (acctInfo.value?.data as any)?.parsed?.info;
+            if (parsed?.decimals !== undefined) {
+              mintDecimals[mint] = parsed.decimals;
+            } else {
+              mintDecimals[mint] = 9;
+            }
+          } catch {
+            mintDecimals[mint] = 9;
+          }
         }
       }
 
