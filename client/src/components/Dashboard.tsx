@@ -531,7 +531,8 @@ export function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
       <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
         <div className="flex items-center gap-2">
-          <img src={hotDammLogo} alt="Hot DAMM!" className="w-12 h-12" />
+          <img src={hotDammLogo} alt="Hot DAMM!" className="w-7 h-7" />
+          <span className="font-semibold text-sm">Hot DAMM!</span>
         </div>
 
         <div
