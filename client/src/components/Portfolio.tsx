@@ -5,7 +5,7 @@ import BN from "bn.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, ExternalLink, TrendingUp, Coins, BarChart3, DollarSign, XCircle } from "lucide-react";
+import { Loader2, RefreshCw, ExternalLink, TrendingUp, BarChart3, DollarSign, XCircle } from "lucide-react";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useEmbeddedWallet } from "@/hooks/useEmbeddedWallet";
@@ -22,11 +22,14 @@ import { executeJupiterSwap } from "@/utils/jupiter";
 import { useToast } from "@/hooks/use-toast";
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
+const SOL_LOGO = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
 
 interface TokenInfo {
   symbol: string;
   decimals: number;
   mint: string;
+  logoUrl: string | null;
+  priceUsd: number;
 }
 
 interface PositionData {
@@ -43,29 +46,105 @@ interface PositionData {
   positionNftAccount: string;
   rawPositionState: any;
   rawPoolState: any;
+  collectFeeMode: number;
 }
 
-const tokenSymbolCache: Record<string, string> = {};
+const tokenMetaCache: Record<string, { symbol: string; logoUrl: string | null; priceUsd: number }> = {};
 
-async function fetchTokenSymbol(mint: string): Promise<string> {
-  if (mint === WSOL_MINT) return "SOL";
-  if (tokenSymbolCache[mint]) return tokenSymbolCache[mint];
+async function fetchTokenMeta(mint: string): Promise<{ symbol: string; logoUrl: string | null; priceUsd: number }> {
+  if (mint === WSOL_MINT) {
+    if (!tokenMetaCache[mint]) {
+      try {
+        const resp = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
+        if (resp.ok) {
+          const data = await resp.json();
+          tokenMetaCache[mint] = { symbol: "SOL", logoUrl: SOL_LOGO, priceUsd: data.solana?.usd || 0 };
+        } else {
+          tokenMetaCache[mint] = { symbol: "SOL", logoUrl: SOL_LOGO, priceUsd: 0 };
+        }
+      } catch {
+        tokenMetaCache[mint] = { symbol: "SOL", logoUrl: SOL_LOGO, priceUsd: 0 };
+      }
+    }
+    return tokenMetaCache[mint];
+  }
+
+  if (tokenMetaCache[mint]) return tokenMetaCache[mint];
 
   try {
     const resp = await fetch(`https://api.dexscreener.com/tokens/v1/solana/${mint}`);
     if (resp.ok) {
       const data = await resp.json();
-      if (data && data.length > 0 && data[0].baseToken?.symbol) {
-        const sym = data[0].baseToken.symbol;
-        tokenSymbolCache[mint] = sym;
-        return sym;
+      if (data && data.length > 0) {
+        let symbol = "";
+        let logoUrl: string | null = null;
+        let priceUsd = 0;
+
+        for (const pair of data) {
+          if (pair.baseToken?.address === mint) {
+            symbol = pair.baseToken?.symbol || symbol;
+            logoUrl = pair.info?.imageUrl || logoUrl;
+            priceUsd = parseFloat(pair.priceUsd || "0");
+            break;
+          }
+        }
+
+        if (!symbol && data[0].quoteToken?.address === mint) {
+          symbol = data[0].quoteToken?.symbol || "";
+          logoUrl = null;
+          const basePrice = parseFloat(data[0].priceUsd || "0");
+          const priceNative = parseFloat(data[0].priceNative || "0");
+          if (priceNative > 0 && basePrice > 0) {
+            priceUsd = basePrice / priceNative;
+          }
+        }
+
+        if (!symbol) {
+          symbol = data[0].baseToken?.symbol || "";
+          logoUrl = data[0].info?.imageUrl || null;
+        }
+
+        if (symbol) {
+          tokenMetaCache[mint] = { symbol, logoUrl, priceUsd };
+          return tokenMetaCache[mint];
+        }
       }
     }
   } catch {}
 
   const short = mint.slice(0, 4) + "..." + mint.slice(-4);
-  tokenSymbolCache[mint] = short;
-  return short;
+  tokenMetaCache[mint] = { symbol: short, logoUrl: null, priceUsd: 0 };
+  return tokenMetaCache[mint];
+}
+
+function TokenLogo({ src, symbol, size = 16 }: { src: string | null; symbol: string; size?: number }) {
+  const [imgFailed, setImgFailed] = useState(false);
+
+  if (!src || imgFailed) {
+    return (
+      <div
+        className="rounded-full bg-muted flex items-center justify-center text-[8px] font-bold text-muted-foreground shrink-0"
+        style={{ width: size, height: size }}
+      >
+        {symbol.slice(0, 2).toUpperCase()}
+      </div>
+    );
+  }
+  return (
+    <img
+      src={src}
+      alt={symbol}
+      className="rounded-full shrink-0 object-cover"
+      style={{ width: size, height: size }}
+      onError={() => setImgFailed(true)}
+    />
+  );
+}
+
+function formatUsd(amount: number): string {
+  if (amount === 0) return "$0.00";
+  if (amount < 0.01) return "<$0.01";
+  return "$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 interface PortfolioProps {
@@ -132,8 +211,7 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
         }
       }
 
-      const symbolPromises = allMints.map(m => fetchTokenSymbol(m));
-      await Promise.all(symbolPromises);
+      await Promise.all(allMints.map(m => fetchTokenMeta(m)));
 
       const positionDataList: PositionData[] = [];
 
@@ -146,6 +224,9 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
         const mintB = poolState.tokenBMint.toBase58();
         const decimalsA = mintDecimals[mintA] || 9;
         const decimalsB = mintDecimals[mintB] || 9;
+
+        const metaA = tokenMetaCache[mintA] || { symbol: shortenAddress(mintA), logoUrl: null, priceUsd: 0 };
+        const metaB = tokenMetaCache[mintB] || { symbol: shortenAddress(mintB), logoUrl: null, priceUsd: 0 };
 
         const totalLiq = pos.positionState.unlockedLiquidity
           .add(pos.positionState.vestedLiquidity)
@@ -180,18 +261,38 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
 
         const isLocked = pos.positionState.permanentLockedLiquidity.gtn(0);
 
+        let collectFeeMode = 0;
+        if (poolState.collectFeeMode !== undefined) {
+          const cfm = poolState.collectFeeMode;
+          if (typeof cfm === "number") {
+            collectFeeMode = cfm;
+          } else if (typeof cfm === "object" && cfm !== null) {
+            if ("onlyB" in cfm) {
+              collectFeeMode = 1;
+            } else if ("bothToken" in cfm) {
+              collectFeeMode = 0;
+            } else if (typeof cfm.toNumber === "function") {
+              collectFeeMode = cfm.toNumber();
+            }
+          }
+        }
+
         positionDataList.push({
           positionAddress: pos.position.toBase58(),
           poolAddress: poolAddr,
           tokenA: {
-            symbol: tokenSymbolCache[mintA] || shortenAddress(mintA),
+            symbol: metaA.symbol,
             decimals: decimalsA,
             mint: mintA,
+            logoUrl: metaA.logoUrl,
+            priceUsd: metaA.priceUsd,
           },
           tokenB: {
-            symbol: tokenSymbolCache[mintB] || shortenAddress(mintB),
+            symbol: metaB.symbol,
             decimals: decimalsB,
             mint: mintB,
+            logoUrl: metaB.logoUrl,
+            priceUsd: metaB.priceUsd,
           },
           amountA,
           amountB,
@@ -202,6 +303,7 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
           positionNftAccount: pos.positionNftAccount.toBase58(),
           rawPositionState: pos.positionState,
           rawPoolState: poolState,
+          collectFeeMode,
         });
       }
 
@@ -416,17 +518,27 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
 
       <div className="space-y-3">
         {positions.map((pos) => {
-          const hasFees = pos.unclaimedFeeA > 0 || pos.unclaimedFeeB > 0;
+          const isQuoteOnly = pos.collectFeeMode === 1;
+          const hasFees = isQuoteOnly
+            ? pos.unclaimedFeeB > 0
+            : (pos.unclaimedFeeA > 0 || pos.unclaimedFeeB > 0);
           const isClaiming = claimingFees[pos.positionAddress] || false;
           const isClosing = closingPosition[pos.positionAddress] || false;
           const posId = pos.positionAddress.slice(0, 8);
+
+          const depositedUsdA = pos.amountA * pos.tokenA.priceUsd;
+          const depositedUsdB = pos.amountB * pos.tokenB.priceUsd;
+          const totalDepositedUsd = depositedUsdA + depositedUsdB;
 
           return (
             <Card key={pos.positionAddress}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
                   <div className="flex items-center gap-2">
-                    <Coins className="w-4 h-4 text-primary" />
+                    <div className="flex items-center -space-x-1">
+                      <TokenLogo src={pos.tokenA.logoUrl} symbol={pos.tokenA.symbol} size={20} />
+                      <TokenLogo src={pos.tokenB.logoUrl} symbol={pos.tokenB.symbol} size={20} />
+                    </div>
                     <span data-testid={`text-pair-${posId}`}>
                       {pos.tokenA.symbol} / {pos.tokenB.symbol}
                     </span>
@@ -452,24 +564,41 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">Deposited</p>
-                    <p className="text-sm font-medium" data-testid={`text-amount-a-${posId}`}>
-                      {formatNumber(pos.amountA)} {pos.tokenA.symbol}
+                    <p className="text-sm font-bold" data-testid={`text-deposited-usd-${posId}`}>
+                      {formatUsd(totalDepositedUsd)}
                     </p>
-                    <p className="text-sm font-medium" data-testid={`text-amount-b-${posId}`}>
-                      {formatNumber(pos.amountB)} {pos.tokenB.symbol}
-                    </p>
+                    <div className="flex items-center gap-1" data-testid={`text-amount-a-${posId}`}>
+                      <TokenLogo src={pos.tokenA.logoUrl} symbol={pos.tokenA.symbol} size={12} />
+                      <p className="text-xs text-muted-foreground">
+                        {formatNumber(pos.amountA)} {pos.tokenA.symbol}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1" data-testid={`text-amount-b-${posId}`}>
+                      <TokenLogo src={pos.tokenB.logoUrl} symbol={pos.tokenB.symbol} size={12} />
+                      <p className="text-xs text-muted-foreground">
+                        {formatNumber(pos.amountB)} {pos.tokenB.symbol}
+                      </p>
+                    </div>
                   </div>
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
                       <TrendingUp className="w-3 h-3" />
                       Unclaimed Fees
                     </p>
-                    <p className="text-sm font-medium" data-testid={`text-fee-a-${posId}`}>
-                      {formatNumber(pos.unclaimedFeeA)} {pos.tokenA.symbol}
-                    </p>
-                    <p className="text-sm font-medium" data-testid={`text-fee-b-${posId}`}>
-                      {formatNumber(pos.unclaimedFeeB)} {pos.tokenB.symbol}
-                    </p>
+                    {!isQuoteOnly && (
+                      <div className="flex items-center gap-1" data-testid={`text-fee-a-${posId}`}>
+                        <TokenLogo src={pos.tokenA.logoUrl} symbol={pos.tokenA.symbol} size={12} />
+                        <p className="text-sm font-medium">
+                          {formatNumber(pos.unclaimedFeeA)} {pos.tokenA.symbol}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1" data-testid={`text-fee-b-${posId}`}>
+                      <TokenLogo src={pos.tokenB.logoUrl} symbol={pos.tokenB.symbol} size={12} />
+                      <p className="text-sm font-medium">
+                        {formatNumber(pos.unclaimedFeeB)} {pos.tokenB.symbol}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
