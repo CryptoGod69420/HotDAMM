@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "./ThemeToggle";
 import { Loader2, Wallet } from "lucide-react";
+import { SiX } from "react-icons/si";
 import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 
 export function LoginScreen() {
@@ -73,8 +74,11 @@ export function LoginScreen() {
         </div>
       </div>
 
-      <footer className="p-4 text-center text-xs text-muted-foreground">
-        made with ❤️ by krispy.
+      <footer className="p-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+        <span>made with ❤️ by krispy.</span>
+        <a href="https://x.com/alexSoKrispy" target="_blank" rel="noopener noreferrer" data-testid="link-twitter">
+          <SiX className="w-3.5 h-3.5 hover-elevate" />
+        </a>
       </footer>
     </div>
   );
