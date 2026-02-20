@@ -1,6 +1,26 @@
 import { build as esbuild } from "esbuild";
 import { build as viteBuild } from "vite";
-import { rm, readFile } from "fs/promises";
+import { rm, readFile, mkdir, writeFile } from "fs/promises";
+
+async function ensureMemoStub() {
+  const stubDir = "node_modules/@solana-program/memo";
+  await mkdir(stubDir, { recursive: true });
+  await writeFile(
+    `${stubDir}/index.mjs`,
+    'export const getAddMemoInstruction = () => ({});\nexport const getAddMemoInstructionAsync = async () => ({});\n'
+  );
+  await writeFile(
+    `${stubDir}/package.json`,
+    JSON.stringify({
+      name: "@solana-program/memo",
+      version: "0.6.1",
+      type: "module",
+      main: "index.mjs",
+      module: "index.mjs",
+      exports: { ".": { import: "./index.mjs", default: "./index.mjs" } },
+    })
+  );
+}
 
 // server deps to bundle to reduce openat(2) syscalls
 // which helps cold start times
@@ -34,6 +54,9 @@ const allowlist = [
 
 async function buildAll() {
   await rm("dist", { recursive: true, force: true });
+
+  console.log("ensuring @solana-program/memo stub...");
+  await ensureMemoStub();
 
   console.log("building client...");
   await viteBuild();
