@@ -15,12 +15,15 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 - `client/src/App.tsx` - Main app with Privy provider setup, auth flow
 - `client/src/components/LoginScreen.tsx` - Login page with Privy auth
 - `client/src/components/Dashboard.tsx` - Wallet info, balance, token search bar, pool creation trigger
+- `client/src/components/Portfolio.tsx` - Portfolio view showing user positions with claim fees and close position actions
 - `client/src/components/PoolSettings.tsx` - Fee & pool config form, deposit amount, saves to localStorage
 - `client/src/components/ThemeToggle.tsx` - Dark/light mode toggle
 - `client/src/hooks/useConnection.ts` - Solana RPC connection singleton
 - `client/src/hooks/useCpAmm.ts` - Meteora CpAmm SDK instance
+- `client/src/hooks/useEmbeddedWallet.ts` - Privy embedded wallet hook
 - `client/src/hooks/useTheme.ts` - Theme state management
 - `client/src/utils/jupiter.ts` - Jupiter v6 swap API (quote + swap execution)
+- `client/src/utils/sendTransaction.ts` - Transaction signing utilities (generic + pool creation specific)
 - `client/src/utils/tokenUtils.ts` - Token mint info, formatting utilities
 - `client/src/polyfills.ts` - Buffer/process/global polyfills for Solana SDK
 
@@ -33,6 +36,9 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 6. Clicking "Open Position" triggers a 2-step automated process:
    a. Jupiter swaps half the SOL deposit into the target token
    b. Meteora DAMMv2 pool is created with the swapped tokens + remaining SOL
+7. Portfolio view shows all active positions with:
+   - "Claim Fees" button: Claims unclaimed LP fees from a position via Meteora SDK `claimPositionFee`
+   - "Close Position" button: Removes all liquidity, closes the position via `removeAllLiquidityAndClosePosition`, then auto-swaps remaining non-SOL tokens back to SOL via Jupiter
 
 ## Technical Notes
 - User only needs SOL in wallet - the app handles token acquisition via Jupiter swap

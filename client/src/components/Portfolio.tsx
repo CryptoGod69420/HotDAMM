@@ -5,16 +5,21 @@ import BN from "bn.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Loader2, RefreshCw, ExternalLink, TrendingUp, Coins, BarChart3 } from "lucide-react";
+import { Loader2, RefreshCw, ExternalLink, TrendingUp, Coins, BarChart3, DollarSign, XCircle } from "lucide-react";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
+import { useEmbeddedWallet } from "@/hooks/useEmbeddedWallet";
 import {
   getUnClaimLpFee,
   getAmountAFromLiquidityDelta,
   getAmountBFromLiquidityDelta,
   Rounding,
+  getCurrentPoint,
 } from "@meteora-ag/cp-amm-sdk";
 import { shortenAddress, formatNumber } from "@/utils/tokenUtils";
+import { signAndSendTransaction } from "@/utils/sendTransaction";
+import { executeJupiterSwap } from "@/utils/jupiter";
+import { useToast } from "@/hooks/use-toast";
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
@@ -35,6 +40,9 @@ interface PositionData {
   unclaimedFeeB: number;
   totalLiquidity: string;
   isLocked: boolean;
+  positionNftAccount: string;
+  rawPositionState: any;
+  rawPoolState: any;
 }
 
 const tokenSymbolCache: Record<string, string> = {};
@@ -67,9 +75,13 @@ interface PortfolioProps {
 export function Portfolio({ walletAddress }: PortfolioProps) {
   const connection = useConnection();
   const cpAmm = useCpAmm();
+  const { embeddedWallet } = useEmbeddedWallet();
+  const { toast } = useToast();
   const [positions, setPositions] = useState<PositionData[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [claimingFees, setClaimingFees] = useState<Record<string, boolean>>({});
+  const [closingPosition, setClosingPosition] = useState<Record<string, boolean>>({});
 
   const fetchPositions = useCallback(async () => {
     setLoading(true);
@@ -187,6 +199,9 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
           unclaimedFeeB: feeB,
           totalLiquidity: totalLiq.toString(),
           isLocked,
+          positionNftAccount: pos.positionNftAccount.toBase58(),
+          rawPositionState: pos.positionState,
+          rawPoolState: poolState,
         });
       }
 
@@ -202,6 +217,123 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
   useEffect(() => {
     fetchPositions();
   }, [fetchPositions]);
+
+  const handleClaimFees = useCallback(async (pos: PositionData) => {
+    if (!embeddedWallet) {
+      toast({ title: "Wallet not ready", description: "Please wait for the wallet to connect.", variant: "destructive" });
+      return;
+    }
+
+    setClaimingFees(prev => ({ ...prev, [pos.positionAddress]: true }));
+
+    try {
+      const poolState = pos.rawPoolState;
+      const tx = await cpAmm.claimPositionFee({
+        owner: new PublicKey(walletAddress),
+        position: new PublicKey(pos.positionAddress),
+        pool: new PublicKey(pos.poolAddress),
+        positionNftAccount: new PublicKey(pos.positionNftAccount),
+        tokenAMint: poolState.tokenAMint,
+        tokenBMint: poolState.tokenBMint,
+        tokenAVault: poolState.tokenAVault,
+        tokenBVault: poolState.tokenBVault,
+        tokenAProgram: poolState.tokenAProgram,
+        tokenBProgram: poolState.tokenBProgram,
+      });
+
+      const txid = await signAndSendTransaction(embeddedWallet, connection, tx);
+
+      toast({ title: "Fees Claimed", description: `Transaction: ${txid.slice(0, 8)}...` });
+      await fetchPositions();
+    } catch (e: any) {
+      console.error("Failed to claim fees:", e);
+      toast({ title: "Claim Failed", description: e.message || "Failed to claim fees", variant: "destructive" });
+    } finally {
+      setClaimingFees(prev => ({ ...prev, [pos.positionAddress]: false }));
+    }
+  }, [embeddedWallet, walletAddress, connection, cpAmm, toast, fetchPositions]);
+
+  const handleClosePosition = useCallback(async (pos: PositionData) => {
+    if (!embeddedWallet) {
+      toast({ title: "Wallet not ready", description: "Please wait for the wallet to connect.", variant: "destructive" });
+      return;
+    }
+
+    setClosingPosition(prev => ({ ...prev, [pos.positionAddress]: true }));
+
+    try {
+      const poolState = pos.rawPoolState;
+      const positionState = pos.rawPositionState;
+
+      const vestings = await cpAmm.getAllVestingsByPosition(new PublicKey(pos.positionAddress));
+      const vestingParams = vestings.map(v => ({
+        account: v.publicKey,
+        vestingState: v.account,
+      }));
+
+      const currentPointValue = await getCurrentPoint(connection, poolState.activationType);
+
+      const tx = await cpAmm.removeAllLiquidityAndClosePosition({
+        owner: new PublicKey(walletAddress),
+        position: new PublicKey(pos.positionAddress),
+        positionNftAccount: new PublicKey(pos.positionNftAccount),
+        poolState,
+        positionState,
+        tokenAAmountThreshold: new BN(0),
+        tokenBAmountThreshold: new BN(0),
+        vestings: vestingParams,
+        currentPoint: currentPointValue,
+      });
+
+      const txid = await signAndSendTransaction(embeddedWallet, connection, tx);
+      toast({ title: "Position Closed", description: `Transaction: ${txid.slice(0, 8)}...` });
+
+      const nonSolMint = pos.tokenA.mint !== WSOL_MINT ? pos.tokenA.mint : pos.tokenB.mint !== WSOL_MINT ? pos.tokenB.mint : null;
+
+      if (nonSolMint) {
+        try {
+          toast({ title: "Swapping tokens to SOL...", description: "Converting remaining tokens via Jupiter" });
+
+          const tokenBalance = await getTokenBalance(connection, walletAddress, nonSolMint);
+
+          if (tokenBalance > 0) {
+            const nonSolDecimals = pos.tokenA.mint !== WSOL_MINT ? pos.tokenA.decimals : pos.tokenB.decimals;
+            const solAmount = tokenBalance / Math.pow(10, nonSolDecimals);
+
+            const quote = await getJupiterQuoteReverse(nonSolMint, tokenBalance);
+            if (quote) {
+              const swapTxBytes = await getJupiterSwapTx(quote, walletAddress);
+              const swapResult = await embeddedWallet.signAndSendTransaction({
+                transaction: swapTxBytes,
+                chain: "solana:mainnet" as any,
+                options: { skipPreflight: true, preflightCommitment: "confirmed" } as any,
+              });
+
+              const bs58Module = await import("bs58");
+              const swapSig = typeof swapResult.signature === "string"
+                ? swapResult.signature
+                : bs58Module.default.encode(swapResult.signature);
+
+              const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+              await connection.confirmTransaction({ signature: swapSig, blockhash, lastValidBlockHeight }, "confirmed");
+
+              toast({ title: "Swap Complete", description: `Tokens swapped to SOL: ${swapSig.slice(0, 8)}...` });
+            }
+          }
+        } catch (swapErr: any) {
+          console.warn("Token swap failed:", swapErr);
+          toast({ title: "Swap Skipped", description: "Position closed but token swap failed. You can swap manually.", variant: "destructive" });
+        }
+      }
+
+      await fetchPositions();
+    } catch (e: any) {
+      console.error("Failed to close position:", e);
+      toast({ title: "Close Failed", description: e.message || "Failed to close position", variant: "destructive" });
+    } finally {
+      setClosingPosition(prev => ({ ...prev, [pos.positionAddress]: false }));
+    }
+  }, [embeddedWallet, walletAddress, connection, cpAmm, toast, fetchPositions]);
 
   const totalFeeA = positions.reduce((sum, p) => {
     const solSide = p.tokenA.mint === WSOL_MINT ? p.unclaimedFeeA : p.tokenB.mint === WSOL_MINT ? p.unclaimedFeeB : 0;
@@ -283,77 +415,180 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
       </div>
 
       <div className="space-y-3">
-        {positions.map((pos) => (
-          <Card key={pos.positionAddress}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Coins className="w-4 h-4 text-primary" />
-                  <span data-testid={`text-pair-${pos.positionAddress.slice(0, 8)}`}>
-                    {pos.tokenA.symbol} / {pos.tokenB.symbol}
-                  </span>
-                  {pos.isLocked && (
-                    <Badge variant="secondary" className="text-xs">
-                      Locked
-                    </Badge>
-                  )}
-                </div>
-                <a
-                  href={`https://app.meteora.ag/pools/${pos.poolAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-muted-foreground flex items-center gap-1"
-                  data-testid={`link-pool-${pos.positionAddress.slice(0, 8)}`}
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Meteora
-                </a>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground">Deposited</p>
-                  <p className="text-sm font-medium" data-testid={`text-amount-a-${pos.positionAddress.slice(0, 8)}`}>
-                    {formatNumber(pos.amountA)} {pos.tokenA.symbol}
-                  </p>
-                  <p className="text-sm font-medium" data-testid={`text-amount-b-${pos.positionAddress.slice(0, 8)}`}>
-                    {formatNumber(pos.amountB)} {pos.tokenB.symbol}
-                  </p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <TrendingUp className="w-3 h-3" />
-                    Unclaimed Fees
-                  </p>
-                  <p className="text-sm font-medium" data-testid={`text-fee-a-${pos.positionAddress.slice(0, 8)}`}>
-                    {formatNumber(pos.unclaimedFeeA)} {pos.tokenA.symbol}
-                  </p>
-                  <p className="text-sm font-medium" data-testid={`text-fee-b-${pos.positionAddress.slice(0, 8)}`}>
-                    {formatNumber(pos.unclaimedFeeB)} {pos.tokenB.symbol}
-                  </p>
-                </div>
-              </div>
+        {positions.map((pos) => {
+          const hasFees = pos.unclaimedFeeA > 0 || pos.unclaimedFeeB > 0;
+          const isClaiming = claimingFees[pos.positionAddress] || false;
+          const isClosing = closingPosition[pos.positionAddress] || false;
+          const posId = pos.positionAddress.slice(0, 8);
 
-              <div className="flex items-center justify-between gap-2 pt-1 border-t">
-                <div className="text-xs text-muted-foreground">
-                  Position: {shortenAddress(pos.positionAddress)}
+          return (
+            <Card key={pos.positionAddress}>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-medium flex items-center justify-between gap-2 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-primary" />
+                    <span data-testid={`text-pair-${posId}`}>
+                      {pos.tokenA.symbol} / {pos.tokenB.symbol}
+                    </span>
+                    {pos.isLocked && (
+                      <Badge variant="secondary" className="text-xs">
+                        Locked
+                      </Badge>
+                    )}
+                  </div>
+                  <a
+                    href={`https://app.meteora.ag/pools/${pos.poolAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground flex items-center gap-1"
+                    data-testid={`link-pool-${posId}`}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Meteora
+                  </a>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">Deposited</p>
+                    <p className="text-sm font-medium" data-testid={`text-amount-a-${posId}`}>
+                      {formatNumber(pos.amountA)} {pos.tokenA.symbol}
+                    </p>
+                    <p className="text-sm font-medium" data-testid={`text-amount-b-${posId}`}>
+                      {formatNumber(pos.amountB)} {pos.tokenB.symbol}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <TrendingUp className="w-3 h-3" />
+                      Unclaimed Fees
+                    </p>
+                    <p className="text-sm font-medium" data-testid={`text-fee-a-${posId}`}>
+                      {formatNumber(pos.unclaimedFeeA)} {pos.tokenA.symbol}
+                    </p>
+                    <p className="text-sm font-medium" data-testid={`text-fee-b-${posId}`}>
+                      {formatNumber(pos.unclaimedFeeB)} {pos.tokenB.symbol}
+                    </p>
+                  </div>
                 </div>
-                <a
-                  href={`https://solscan.io/account/${pos.positionAddress}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-primary flex items-center gap-1"
-                  data-testid={`link-position-${pos.positionAddress.slice(0, 8)}`}
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Solscan
-                </a>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    disabled={!hasFees || isClaiming || isClosing}
+                    onClick={() => handleClaimFees(pos)}
+                    data-testid={`button-claim-fees-${posId}`}
+                  >
+                    {isClaiming ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <DollarSign className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    {isClaiming ? "Claiming..." : "Claim Fees"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="flex-1"
+                    disabled={pos.isLocked || isClosing || isClaiming}
+                    onClick={() => handleClosePosition(pos)}
+                    data-testid={`button-close-position-${posId}`}
+                  >
+                    {isClosing ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    ) : (
+                      <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    )}
+                    {isClosing ? "Closing..." : "Close Position"}
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-1 border-t">
+                  <div className="text-xs text-muted-foreground">
+                    Position: {shortenAddress(pos.positionAddress)}
+                  </div>
+                  <a
+                    href={`https://solscan.io/account/${pos.positionAddress}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-primary flex items-center gap-1"
+                    data-testid={`link-position-${posId}`}
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Solscan
+                  </a>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+async function getTokenBalance(connection: any, walletAddress: string, mintAddress: string): Promise<number> {
+  const { TOKEN_PROGRAM_ID } = await import("@solana/spl-token");
+  const owner = new PublicKey(walletAddress);
+  const mint = new PublicKey(mintAddress);
+
+  const accounts = await connection.getParsedTokenAccountsByOwner(owner, { mint });
+  if (accounts.value.length === 0) return 0;
+
+  const balance = accounts.value[0].account.data.parsed.info.tokenAmount.amount;
+  return Number(balance);
+}
+
+const JUPITER_API = "https://api.jup.ag/swap/v1";
+const API_KEY = typeof import.meta !== "undefined" ? (import.meta.env.VITE_JUPITER_API_KEY || "") : "";
+
+function jupiterHeaders(json = false): Record<string, string> {
+  const h: Record<string, string> = {};
+  if (API_KEY) h["x-api-key"] = API_KEY;
+  if (json) h["Content-Type"] = "application/json";
+  return h;
+}
+
+async function getJupiterQuoteReverse(inputMint: string, amountRaw: number): Promise<any> {
+  const params = new URLSearchParams({
+    inputMint,
+    outputMint: WSOL_MINT,
+    amount: amountRaw.toString(),
+    slippageBps: "300",
+    swapMode: "ExactIn",
+  });
+
+  const res = await fetch(`${JUPITER_API}/quote?${params}`, { headers: jupiterHeaders() });
+  if (!res.ok) return null;
+  return res.json();
+}
+
+async function getJupiterSwapTx(quoteResponse: any, userPublicKey: string): Promise<Uint8Array> {
+  const res = await fetch(`${JUPITER_API}/swap`, {
+    method: "POST",
+    headers: jupiterHeaders(true),
+    body: JSON.stringify({
+      quoteResponse,
+      userPublicKey,
+      wrapAndUnwrapSol: true,
+      dynamicComputeUnitLimit: true,
+      prioritizationFeeLamports: {
+        priorityLevelWithMaxLamports: {
+          maxLamports: 5000000,
+          priorityLevel: "high",
+        },
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Jupiter swap failed: ${text}`);
+  }
+
+  const { swapTransaction } = await res.json();
+  return Uint8Array.from(atob(swapTransaction), (c) => c.charCodeAt(0));
 }
