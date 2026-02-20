@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
 import { PoolSettings, loadSettings } from "./PoolSettings";
+import { Portfolio } from "./Portfolio";
 import {
   shortenAddress,
   formatNumber,
@@ -57,12 +58,13 @@ import {
   Shield,
   ArrowDownToLine,
   Coins,
+  BarChart3,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
 
-type View = "dashboard" | "settings";
+type View = "dashboard" | "settings" | "portfolio";
 
 interface TokenMetadata {
   name: string;
@@ -460,6 +462,40 @@ export function Dashboard() {
   ) as WalletWithMetadata | undefined;
   const embeddedWalletAddress = solanaEmbeddedWallet?.address || null;
   const isEmbeddedWallet = !!embeddedWalletAddress;
+
+  if (view === "portfolio") {
+    return (
+      <div className="min-h-screen bg-background flex flex-col">
+        <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setView("dashboard")}
+              data-testid="button-back-portfolio"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+            <BarChart3 className="w-5 h-5 text-primary" />
+            <span className="font-semibold text-sm">Portfolio</span>
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle />
+          </div>
+        </header>
+
+        <main className="flex-1 overflow-auto">
+          <div className="max-w-2xl mx-auto p-4">
+            {walletAddress && <Portfolio walletAddress={walletAddress} />}
+          </div>
+        </main>
+
+        <footer className="p-4 text-center text-xs text-muted-foreground">
+          made with ❤️ by krispy.
+        </footer>
+      </div>
+    );
+  }
 
   if (view === "settings") {
     return (
@@ -934,17 +970,30 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <Button
-            className="w-full"
-            variant="outline"
-            size="lg"
-            onClick={() => setView("settings")}
-            disabled={isCreating}
-            data-testid="button-settings"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Pool Settings
-          </Button>
+          <div className="grid grid-cols-2 gap-3">
+            <Button
+              className="w-full"
+              variant="outline"
+              size="lg"
+              onClick={() => setView("portfolio")}
+              disabled={isCreating}
+              data-testid="button-portfolio"
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Portfolio
+            </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              size="lg"
+              onClick={() => setView("settings")}
+              disabled={isCreating}
+              data-testid="button-settings"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </div>
 
           <Card>
             <CardHeader>
