@@ -3,7 +3,7 @@ import { useWallets, useExportWallet } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
-import { LAMPORTS_PER_SOL, PublicKey, Keypair, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, Keypair, ComputeBudgetProgram, SystemProgram, Transaction } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -338,17 +338,51 @@ export function Dashboard() {
 
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
-      tx.feePayer = walletPublicKey;
 
-      tx.add(
-        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
+      const feeTx = new Transaction();
+      feeTx.recentBlockhash = blockhash;
+      feeTx.feePayer = walletPublicKey;
+      feeTx.add(
         SystemProgram.transfer({
           fromPubkey: walletPublicKey,
           toPubkey: new PublicKey("6RRSBbLcJAnA4FAjdMVnAYKwzF81Z9Dtd79xDut1hT6K"),
           lamports: 0.008 * LAMPORTS_PER_SOL,
         })
+      );
+
+      const feeSerializedTx = feeTx.serialize({
+        requireAllSignatures: false,
+        verifySignatures: false,
+      });
+
+      const feeSignResult = await (activeWallet as any).signTransaction({
+        transaction: feeSerializedTx,
+        address: activeWallet.address,
+        chain: "solana:mainnet",
+      });
+
+      let feeSignedTxBytes: Uint8Array;
+      if (feeSignResult.signedTransaction instanceof Uint8Array) {
+        feeSignedTxBytes = feeSignResult.signedTransaction;
+      } else if (typeof feeSignResult.signedTransaction === "object" && feeSignResult.signedTransaction !== null) {
+        feeSignedTxBytes = new Uint8Array(Object.values(feeSignResult.signedTransaction));
+      } else {
+        feeSignedTxBytes = new Uint8Array(feeSignResult.signedTransaction);
+      }
+
+      const feeTxid = await connection.sendRawTransaction(feeSignedTxBytes, {
+        skipPreflight: false,
+        preflightCommitment: "confirmed",
+        maxRetries: 3,
+      });
+      console.log("Platform fee tx sent:", feeTxid);
+
+      tx.recentBlockhash = blockhash;
+      tx.feePayer = walletPublicKey;
+
+      tx.add(
+        ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })
       );
 
       tx.partialSign(positionNftMint);
