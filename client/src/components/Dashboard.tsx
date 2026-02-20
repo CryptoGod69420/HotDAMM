@@ -8,7 +8,6 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana
 import BN from "bn.js";
 import Decimal from "decimal.js";
 import bs58 from "bs58";
-import { SiX } from "react-icons/si";
 import {
   getBaseFeeParams,
   getDynamicFeeParams,
@@ -491,11 +490,8 @@ export function Dashboard() {
           </div>
         </main>
 
-        <footer className="p-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <span>made with ❤️ by krispy.</span>
-          <a href="https://x.com/alexSoKrispy" target="_blank" rel="noopener noreferrer" data-testid="link-twitter-portfolio">
-            <SiX className="w-3.5 h-3.5 hover-elevate" />
-          </a>
+        <footer className="p-4 text-center text-xs text-muted-foreground">
+          made with ❤️ by krispy.
         </footer>
       </div>
     );
@@ -1021,11 +1017,8 @@ export function Dashboard() {
         </div>
       </main>
 
-      <footer className="p-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-        <span>made with ❤️ by krispy.</span>
-        <a href="https://x.com/alexSoKrispy" target="_blank" rel="noopener noreferrer" data-testid="link-twitter-dashboard">
-          <SiX className="w-3.5 h-3.5 hover-elevate" />
-        </a>
+      <footer className="p-4 text-center text-xs text-muted-foreground">
+        made with ❤️ by krispy.
       </footer>
     </div>
   );
