@@ -8,7 +8,6 @@ import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana
 import BN from "bn.js";
 import Decimal from "decimal.js";
 import bs58 from "bs58";
-import { SiX } from "react-icons/si";
 import {
   getBaseFeeParams,
   getDynamicFeeParams,
