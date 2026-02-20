@@ -11,9 +11,6 @@ import { useCpAmm } from "@/hooks/useCpAmm";
 import { useEmbeddedWallet } from "@/hooks/useEmbeddedWallet";
 import {
   getUnClaimLpFee,
-  getAmountAFromLiquidityDelta,
-  getAmountBFromLiquidityDelta,
-  Rounding,
   getCurrentPoint,
 } from "@meteora-ag/cp-amm-sdk";
 import { shortenAddress, formatNumber } from "@/utils/tokenUtils";
@@ -235,20 +232,21 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
         let amountA = 0;
         let amountB = 0;
         try {
-          const amtABN = getAmountAFromLiquidityDelta(
-            poolState.sqrtMinPrice,
-            poolState.sqrtPrice,
-            totalLiq,
-            Rounding.Down
-          );
-          const amtBBN = getAmountBFromLiquidityDelta(
-            poolState.sqrtPrice,
-            poolState.sqrtMaxPrice,
-            totalLiq,
-            Rounding.Down
-          );
-          amountA = Number(amtABN.toString()) / Math.pow(10, decimalsA);
-          amountB = Number(amtBBN.toString()) / Math.pow(10, decimalsB);
+          const poolTotalLiquidity = poolState.liquidity;
+          if (poolTotalLiquidity && poolTotalLiquidity.gtn(0)) {
+            const [vaultAInfo, vaultBInfo] = await Promise.all([
+              connection.getTokenAccountBalance(poolState.tokenAVault),
+              connection.getTokenAccountBalance(poolState.tokenBVault),
+            ]);
+            const vaultAAmount = new BN(vaultAInfo.value.amount);
+            const vaultBAmount = new BN(vaultBInfo.value.amount);
+
+            const userShareA = totalLiq.mul(vaultAAmount).div(poolTotalLiquidity);
+            const userShareB = totalLiq.mul(vaultBAmount).div(poolTotalLiquidity);
+
+            amountA = Number(userShareA.toString()) / Math.pow(10, decimalsA);
+            amountB = Number(userShareB.toString()) / Math.pow(10, decimalsB);
+          }
         } catch {}
 
         let feeA = 0;
