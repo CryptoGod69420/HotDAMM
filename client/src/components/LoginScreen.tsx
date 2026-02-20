@@ -20,10 +20,7 @@ export function LoginScreen() {
       <div className="flex-1 flex items-center justify-center p-4">
         <div className="w-full max-w-md space-y-6">
           <div className="text-center space-y-2">
-            <img src={hotDammLogo} alt="Hot DAMM!" className="w-24 h-24 mx-auto mb-2" />
-            <h1 className="text-2xl font-bold tracking-tight">
-              Hot DAMM!
-            </h1>
+            <img src={hotDammLogo} alt="Hot DAMM!" className="w-36 h-36 mx-auto mb-2" />
             <p className="text-muted-foreground text-sm max-w-sm mx-auto">
               Open custom liquidity positions on Meteora's constant-product AMM with one click.
             </p>
