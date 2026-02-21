@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { PublicKey } from "@solana/web3.js";
-import { getMint } from "@solana/spl-token";
+import { getMint, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import BN from "bn.js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +12,7 @@ import { useEmbeddedWallet } from "@/hooks/useEmbeddedWallet";
 import {
   getUnClaimLpFee,
   getCurrentPoint,
+  getTokenProgram,
 } from "@meteora-ag/cp-amm-sdk";
 import { shortenAddress, formatNumber } from "@/utils/tokenUtils";
 import { signAndSendTransaction } from "@/utils/sendTransaction";
@@ -19,6 +20,29 @@ import { executeJupiterSwap } from "@/utils/jupiter";
 import { useToast } from "@/hooks/use-toast";
 
 const WSOL_MINT = "So11111111111111111111111111111111111111112";
+
+function resolvePoolTokenPrograms(poolState: any): { tokenAProg: PublicKey; tokenBProg: PublicKey } {
+  let tokenAProg: PublicKey;
+  let tokenBProg: PublicKey;
+
+  if (poolState.tokenAProgram instanceof PublicKey) {
+    tokenAProg = poolState.tokenAProgram;
+  } else if (poolState.tokenAFlag !== undefined) {
+    tokenAProg = getTokenProgram(poolState.tokenAFlag);
+  } else {
+    tokenAProg = TOKEN_PROGRAM_ID;
+  }
+
+  if (poolState.tokenBProgram instanceof PublicKey) {
+    tokenBProg = poolState.tokenBProgram;
+  } else if (poolState.tokenBFlag !== undefined) {
+    tokenBProg = getTokenProgram(poolState.tokenBFlag);
+  } else {
+    tokenBProg = TOKEN_PROGRAM_ID;
+  }
+
+  return { tokenAProg, tokenBProg };
+}
 const SOL_LOGO = "https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png";
 
 interface TokenInfo {
@@ -44,6 +68,8 @@ interface PositionData {
   rawPositionState: any;
   rawPoolState: any;
   collectFeeMode: number;
+  tokenAProgramId: PublicKey;
+  tokenBProgramId: PublicKey;
 }
 
 const tokenMetaCache: Record<string, { symbol: string; logoUrl: string | null; priceUsd: number }> = {};
@@ -187,15 +213,31 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
         }
       }
 
+      const poolProgramCache: Record<string, { tokenAProg: PublicKey; tokenBProg: PublicKey }> = {};
+      for (const addr of poolAddresses) {
+        const ps = poolStates[addr];
+        if (ps) {
+          poolProgramCache[addr] = resolvePoolTokenPrograms(ps);
+        }
+      }
+
       const mintDecimals: Record<string, number> = {};
-      const mintPrograms: Record<string, PublicKey> = {};
-      Object.values(poolStates).forEach((ps: any) => {
+      const mintToProgram: Record<string, PublicKey> = {};
+      const allMintsObj: Record<string, boolean> = {};
+      for (const addr of poolAddresses) {
+        const ps = poolStates[addr];
+        if (!ps) continue;
         const mintA = ps.tokenAMint.toBase58();
         const mintB = ps.tokenBMint.toBase58();
-        mintPrograms[mintA] = ps.tokenAProgram;
-        mintPrograms[mintB] = ps.tokenBProgram;
-      });
-      const allMints = Object.keys(mintPrograms);
+        allMintsObj[mintA] = true;
+        allMintsObj[mintB] = true;
+        const progs = poolProgramCache[addr];
+        if (progs) {
+          mintToProgram[mintA] = progs.tokenAProg;
+          mintToProgram[mintB] = progs.tokenBProg;
+        }
+      }
+      const allMints = Object.keys(allMintsObj);
 
       for (const mint of allMints) {
         if (mint === WSOL_MINT) {
@@ -203,7 +245,8 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
           continue;
         }
         try {
-          const mintInfo = await getMint(connection, new PublicKey(mint), undefined, mintPrograms[mint]);
+          const prog = mintToProgram[mint] || TOKEN_PROGRAM_ID;
+          const mintInfo = await getMint(connection, new PublicKey(mint), undefined, prog);
           mintDecimals[mint] = mintInfo.decimals;
         } catch {
           try {
@@ -314,6 +357,8 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
           rawPositionState: pos.positionState,
           rawPoolState: poolState,
           collectFeeMode,
+          tokenAProgramId: poolProgramCache[poolAddr]?.tokenAProg || TOKEN_PROGRAM_ID,
+          tokenBProgramId: poolProgramCache[poolAddr]?.tokenBProg || TOKEN_PROGRAM_ID,
         });
       }
 
@@ -349,8 +394,8 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
         tokenBMint: poolState.tokenBMint,
         tokenAVault: poolState.tokenAVault,
         tokenBVault: poolState.tokenBVault,
-        tokenAProgram: poolState.tokenAProgram,
-        tokenBProgram: poolState.tokenBProgram,
+        tokenAProgram: pos.tokenAProgramId,
+        tokenBProgram: pos.tokenBProgramId,
       });
 
       const txid = await signAndSendTransaction(embeddedWallet, connection, tx);
@@ -374,7 +419,11 @@ export function Portfolio({ walletAddress }: PortfolioProps) {
     setClosingPosition(prev => ({ ...prev, [pos.positionAddress]: true }));
 
     try {
-      const poolState = pos.rawPoolState;
+      const poolState = {
+        ...pos.rawPoolState,
+        tokenAProgram: pos.tokenAProgramId,
+        tokenBProgram: pos.tokenBProgramId,
+      };
       const positionState = pos.rawPositionState;
 
       const vestings = await cpAmm.getAllVestingsByPosition(new PublicKey(pos.positionAddress));
