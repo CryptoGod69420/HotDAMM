@@ -264,6 +264,14 @@ export function OpenPositionForm({ onSuccess }: Props) {
         throw new Error("All config keys exhausted — a pool already exists for this token pair with every available config. Try changing your fee settings.");
       }
 
+      for (const ix of tx.instructions) {
+        for (const key of ix.keys) {
+          if (key.pubkey.equals(DEFAULT_POOL_CREATOR_AUTHORITY) && key.isSigner) {
+            key.isSigner = false;
+          }
+        }
+      }
+
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
