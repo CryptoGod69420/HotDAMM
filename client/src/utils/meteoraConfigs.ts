@@ -35,31 +35,6 @@ const STATIC_CONFIGS: StaticConfig[] = [
   { index: 23, baseFeeValue: 60000000, collectFeeMode: 1, dynamicFee: false, configAccount: "Ha2bAcxbLrFr5RiugBgeJVLx1JE7gq16rzAuqUED1v3f" },
 ];
 
-const BPS_TO_BASE_FEE: Record<number, number> = {
-  25: 2500000,
-  30: 3000000,
-  100: 10000000,
-  200: 20000000,
-  400: 40000000,
-  600: 60000000,
-};
-
-const VALID_BASE_FEES = [2500000, 3000000, 10000000, 20000000, 40000000, 60000000];
-
-function closestBaseFee(bps: number): number {
-  const target = bps * 100000;
-  let best = VALID_BASE_FEES[0];
-  let bestDiff = Math.abs(target - best);
-  for (const bf of VALID_BASE_FEES) {
-    const diff = Math.abs(target - bf);
-    if (diff < bestDiff) {
-      best = bf;
-      bestDiff = diff;
-    }
-  }
-  return best;
-}
-
 function normalizeCollectFeeMode(mode: number): number {
   return mode === 0 ? 0 : 1;
 }
@@ -67,29 +42,16 @@ function normalizeCollectFeeMode(mode: number): number {
 export function selectStaticConfig(
   collectFeeMode: number,
   enableDynamicFee: boolean,
-  startingFeeBps: number,
 ): PublicKey {
   const normalizedMode = normalizeCollectFeeMode(collectFeeMode);
-  const baseFee = BPS_TO_BASE_FEE[startingFeeBps] || closestBaseFee(startingFeeBps);
 
   const match = STATIC_CONFIGS.find(
     (c) =>
-      c.baseFeeValue === baseFee &&
       c.collectFeeMode === normalizedMode &&
       c.dynamicFee === enableDynamicFee
   );
 
-  if (match) {
-    return new PublicKey(match.configAccount);
-  }
-
-  const fallback = STATIC_CONFIGS.find(
-    (c) =>
-      c.collectFeeMode === normalizedMode &&
-      c.dynamicFee === enableDynamicFee
-  );
-
-  return new PublicKey(fallback?.configAccount || STATIC_CONFIGS[0].configAccount);
+  return new PublicKey(match?.configAccount || STATIC_CONFIGS[0].configAccount);
 }
 
 export function getAllMatchingConfigs(

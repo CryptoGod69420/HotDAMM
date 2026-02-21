@@ -50,10 +50,10 @@ const formSchema = z.object({
   tokenAAmount: z.coerce.number().positive("Must be > 0"),
   tokenBAmount: z.coerce.number().positive("Must be > 0"),
   baseFeeMode: z.string().default("1"),
-  startingFeeBps: z.coerce.number().min(0).max(10000).default(500),
-  endingFeeBps: z.coerce.number().min(0).max(10000).default(25),
-  feeDurationSeconds: z.coerce.number().min(1).default(300),
-  feeNumberOfPeriods: z.coerce.number().min(1).default(50),
+  startingFeeBps: z.coerce.number().min(0).max(10000).default(5000),
+  endingFeeBps: z.coerce.number().min(0).max(10000).default(500),
+  feeDurationSeconds: z.coerce.number().min(1).default(79200),
+  feeNumberOfPeriods: z.coerce.number().min(1).default(100),
   enableDynamicFee: z.boolean().default(true),
   dynamicFeeMaxBps: z.coerce.number().min(0).max(10000).default(25),
   collectFeeMode: z.string().default("0"),
@@ -104,10 +104,10 @@ export function OpenPositionForm({ onSuccess }: Props) {
       tokenAAmount: 0,
       tokenBAmount: 0,
       baseFeeMode: "1",
-      startingFeeBps: 500,
-      endingFeeBps: 25,
-      feeDurationSeconds: 300,
-      feeNumberOfPeriods: 50,
+      startingFeeBps: 5000,
+      endingFeeBps: 500,
+      feeDurationSeconds: 79200,
+      feeNumberOfPeriods: 100,
       enableDynamicFee: true,
       dynamicFeeMaxBps: 25,
       collectFeeMode: "0",
@@ -204,7 +204,6 @@ export function OpenPositionForm({ onSuccess }: Props) {
       const selectedConfig = selectStaticConfig(
         collectFeeModeNum,
         values.enableDynamicFee,
-        values.startingFeeBps,
       );
 
       const allMatchingConfigs = getAllMatchingConfigs(

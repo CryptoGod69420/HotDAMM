@@ -50,7 +50,8 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 - Pool creation uses `createCustomPoolWithDynamicConfig` with Meteora static configs (not `createCustomPool`)
   - Static configs add the config key to the pool PDA seeds: `tokenAMint + tokenBMint + config`
   - This allows multiple pools per token pair (up to 6 per collectFeeMode+dynamicFee combo)
-  - Config is auto-selected based on user's fee tier, collectFeeMode, and dynamicFee settings
+  - Fee schedule is hardcoded: 50% starting fee (5000 bps) → 5% ending fee (500 bps) over ~22 hours (79200s)
+  - Config is auto-selected based on collectFeeMode and dynamicFee settings
   - If a pool PDA already exists, the app automatically retries with alternative config keys
   - `poolCreatorAuthority` is set to default (zero key) since static configs are public
   - Config lookup is in `client/src/utils/meteoraConfigs.ts`

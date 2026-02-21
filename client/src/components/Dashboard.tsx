@@ -321,7 +321,6 @@ export function Dashboard() {
       const selectedConfig = selectStaticConfig(
         collectFeeModeNum,
         settings.enableDynamicFee,
-        settings.startingFeeBps,
       );
 
       const allMatchingConfigs = getAllMatchingConfigs(
