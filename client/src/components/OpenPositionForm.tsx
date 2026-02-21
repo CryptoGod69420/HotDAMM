@@ -271,7 +271,11 @@ export function OpenPositionForm({ onSuccess }: Props) {
       onSuccess(txid);
     } catch (e: any) {
       console.error("Transaction failed:", e);
-      const msg = e?.message || "Transaction failed";
+      let msg = e?.message || "Transaction failed";
+      const fullMsg = msg + (e?.logs ? " " + e.logs.join(" ") : "");
+      if (fullMsg.includes("already in use") || fullMsg.includes("0x0")) {
+        msg = "Pool already exists for this token pair. Close the existing pool first before creating a new one.";
+      }
       setError(msg);
       toast({
         title: "Transaction Failed",

@@ -435,7 +435,10 @@ export function Dashboard() {
     } catch (e: any) {
       console.error("Pool creation failed:", e);
       let msg = e?.message || "Transaction failed";
-      if (e?.logs) {
+      const fullMsg = msg + (e?.logs ? " " + e.logs.join(" ") : "");
+      if (fullMsg.includes("already in use") || fullMsg.includes("0x0")) {
+        msg = "Pool already exists for this token pair. Close the existing pool first before creating a new one.";
+      } else if (e?.logs) {
         console.error("Transaction logs:", e.logs);
         const lastLog = e.logs[e.logs.length - 1];
         if (lastLog) msg += ` | ${lastLog}`;
