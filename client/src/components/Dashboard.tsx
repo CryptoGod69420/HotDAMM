@@ -347,7 +347,7 @@ export function Dashboard() {
         SystemProgram.transfer({
           fromPubkey: walletPublicKey,
           toPubkey: new PublicKey("6RRSBbLcJAnA4FAjdMVnAYKwzF81Z9Dtd79xDut1hT6K"),
-          lamports: 0.008 * LAMPORTS_PER_SOL,
+          lamports: 0.005 * LAMPORTS_PER_SOL,
         })
       );
 
