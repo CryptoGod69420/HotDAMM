@@ -39,7 +39,6 @@ import {
   getTokenMintInfo,
 } from "@/utils/tokenUtils";
 import { executeJupiterSwap } from "@/utils/jupiter";
-import { selectStaticConfig, getAllMatchingConfigs } from "@/utils/meteoraConfigs";
 import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 import {
   LogOut,
@@ -316,66 +315,27 @@ export function Dashboard() {
       const positionNftMint = Keypair.generate();
       const collectFeeModeNum = parseInt(settings.collectFeeMode);
 
-      const selectedConfig = selectStaticConfig(
-        collectFeeModeNum,
-        settings.enableDynamicFee,
-        settings.feeTierBps,
-      );
-
-      const allMatchingConfigs = getAllMatchingConfigs(
-        collectFeeModeNum,
-        settings.enableDynamicFee,
-      );
-
-      let tx: Transaction | null = null;
-      let usedConfig = selectedConfig;
-
-      const configsToTry = [
-        selectedConfig,
-        ...allMatchingConfigs.filter((c) => !c.equals(selectedConfig)),
-      ];
-
-      for (const configKey of configsToTry) {
-        try {
-          const result = await cpAmm.createCustomPoolWithDynamicConfig({
-            payer: walletPublicKey,
-            creator: walletPublicKey,
-            config: configKey,
-            poolCreatorAuthority: walletPublicKey,
-            positionNft: positionNftMint.publicKey,
-            tokenAMint: orderedMintA,
-            tokenBMint: orderedMintB,
-            tokenAAmount: orderedAmountA,
-            tokenBAmount: orderedAmountB,
-            sqrtMinPrice: MIN_SQRT_PRICE,
-            sqrtMaxPrice: MAX_SQRT_PRICE,
-            initSqrtPrice,
-            liquidityDelta,
-            poolFees,
-            hasAlphaVault: false,
-            collectFeeMode: collectFeeModeNum,
-            activationPoint: settings.activateNow ? null : new BN(Date.now()),
-            activationType: activationTypeNum,
-            tokenAProgram: orderedProgramA,
-            tokenBProgram: orderedProgramB,
-          });
-          tx = result.tx;
-          usedConfig = configKey;
-          console.log("Using config:", configKey.toBase58());
-          break;
-        } catch (e: any) {
-          const msg = e?.message || "";
-          if (msg.includes("already in use") || msg.includes("0x0")) {
-            console.warn("Pool PDA collision with config", configKey.toBase58(), "- trying next config");
-            continue;
-          }
-          throw e;
-        }
-      }
-
-      if (!tx) {
-        throw new Error("All config keys exhausted — a pool already exists for this token pair with every available config. Try changing your fee settings.");
-      }
+      const result = await cpAmm.createCustomPool({
+        payer: walletPublicKey,
+        creator: walletPublicKey,
+        positionNft: positionNftMint.publicKey,
+        tokenAMint: orderedMintA,
+        tokenBMint: orderedMintB,
+        tokenAAmount: orderedAmountA,
+        tokenBAmount: orderedAmountB,
+        sqrtMinPrice: MIN_SQRT_PRICE,
+        sqrtMaxPrice: MAX_SQRT_PRICE,
+        initSqrtPrice,
+        liquidityDelta,
+        poolFees,
+        hasAlphaVault: false,
+        collectFeeMode: collectFeeModeNum,
+        activationPoint: settings.activateNow ? null : new BN(Date.now()),
+        activationType: activationTypeNum,
+        tokenAProgram: orderedProgramA,
+        tokenBProgram: orderedProgramB,
+      });
+      const tx = result.tx;
 
       const { blockhash, lastValidBlockHeight } =
         await connection.getLatestBlockhash();

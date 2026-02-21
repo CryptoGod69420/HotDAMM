@@ -47,14 +47,11 @@ A Solana DeFi frontend application that enables users to create custom liquidity
 - `@solana-program/memo` is stubbed locally (peer dep of Privy, version conflict with @solana/kit v5)
 - Buffer/process/global polyfills required for @coral-xyz/anchor (used by Meteora SDK)
 - `toSolanaWalletConnectors()` generates a non-fatal "Invalid hook call" warning from browser wallet extension detection - this is expected
-- Pool creation uses `createCustomPoolWithDynamicConfig` with Meteora static configs (not `createCustomPool`)
-  - Static configs add the config key to the pool PDA seeds: `tokenAMint + tokenBMint + config`
-  - This allows multiple pools per token pair (up to 6 per collectFeeMode+dynamicFee combo)
-  - Config is auto-selected based on user's fee tier, collectFeeMode, and dynamicFee settings
-  - If a pool PDA already exists, the app automatically retries with alternative config keys
-  - `poolCreatorAuthority` is set to default (zero key) since static configs are public
-  - Config lookup is in `client/src/utils/meteoraConfigs.ts`
-- `Keypair.generate()` used for positionNftMint, partial-signed before Privy wallet signs
+- Pool creation uses `createCustomPool` (customizable pool, no config/authority required)
+  - Pool PDA derived from `tokenAMint + tokenBMint` only (one pool per token pair)
+  - Custom fee schedules (poolFees) are passed directly — no static config needed
+  - No `poolCreatorAuthority` required (avoids signer constraint issues with public configs)
+- `Keypair.generate()` used for positionNftMint; Privy signs first, then positionNftMint partialSign is added after
 - All token amounts use BN (BigNumber), scaled by token decimals
 - Pool creation flow requires 2 transactions: Jupiter swap + Meteora pool creation
 
