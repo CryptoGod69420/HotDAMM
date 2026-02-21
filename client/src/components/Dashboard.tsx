@@ -211,7 +211,6 @@ export function Dashboard() {
   const handleOpenPosition = async () => {
     if (!activeWallet || !searchResult) return;
 
-    setCreationStep("swapping");
     setPoolError(null);
 
     try {
@@ -219,6 +218,16 @@ export function Dashboard() {
       const walletPublicKey = new PublicKey(activeWallet.address);
       const solMint = new PublicKey(WSOL_MINT);
       const tokenMint = new PublicKey(searchResult.mint);
+
+      const SOL_OVERHEAD = 0.035;
+      const requiredSol = settings.depositAmountSol + SOL_OVERHEAD;
+      const walletBalance = await connection.getBalance(walletPublicKey);
+      if (walletBalance < requiredSol * LAMPORTS_PER_SOL) {
+        setPoolError("Insufficient SOL balance.");
+        return;
+      }
+
+      setCreationStep("swapping");
       const halfSol = settings.depositAmountSol / 2;
 
       const swapResult = await executeJupiterSwap(
