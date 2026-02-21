@@ -25,10 +25,10 @@ export interface PoolSettingsValues {
 const DEFAULT_SETTINGS: PoolSettingsValues = {
   depositAmountSol: 0.2,
   baseFeeMode: "1",
-  startingFeeBps: 5000,
-  endingFeeBps: 500,
-  feeDurationSeconds: 79200,
-  feeNumberOfPeriods: 100,
+  startingFeeBps: 100,
+  endingFeeBps: 25,
+  feeDurationSeconds: 300,
+  feeNumberOfPeriods: 50,
   enableDynamicFee: true,
   dynamicFeeMaxBps: 25,
   collectFeeMode: "1",
@@ -36,6 +36,15 @@ const DEFAULT_SETTINGS: PoolSettingsValues = {
   activateNow: true,
   enableFeeScheduler: true,
 };
+
+const FEE_TIERS = [
+  { label: "0.25%", bps: 25 },
+  { label: "0.3%", bps: 30 },
+  { label: "1%", bps: 100 },
+  { label: "2%", bps: 200 },
+  { label: "4%", bps: 400 },
+  { label: "6%", bps: 600 },
+];
 
 export function loadSettings(): PoolSettingsValues {
   try {
@@ -46,10 +55,6 @@ export function loadSettings(): PoolSettingsValues {
       if (merged.collectFeeMode !== "0" && merged.collectFeeMode !== "1") {
         merged.collectFeeMode = "1";
       }
-      merged.startingFeeBps = 5000;
-      merged.endingFeeBps = 500;
-      merged.feeDurationSeconds = 79200;
-      merged.feeNumberOfPeriods = 100;
       return merged;
     }
   } catch {}
@@ -139,10 +144,26 @@ export function PoolSettings({ onSaved }: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">Fee Schedule</p>
-              <p className="text-xs text-muted-foreground">50% starting fee → 5% over ~22 hours</p>
+              <p className="text-sm font-medium">Fee Tier</p>
+              <p className="text-xs text-muted-foreground">Starting fee for the pool</p>
             </div>
-            <span className="text-xs font-medium text-muted-foreground" data-testid="text-fee-schedule">Fixed</span>
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              {FEE_TIERS.map((tier) => (
+                <button
+                  key={tier.bps}
+                  type="button"
+                  onClick={() => update("startingFeeBps", tier.bps)}
+                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                    settings.startingFeeBps === tier.bps
+                      ? "bg-foreground text-background"
+                      : "bg-muted/50 border text-muted-foreground hover-elevate"
+                  }`}
+                  data-testid={`button-fee-tier-${tier.bps}`}
+                >
+                  {tier.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="h-px bg-border" />
@@ -210,8 +231,8 @@ export function PoolSettings({ onSaved }: Props) {
                 </div>
                 <ToggleGroup
                   options={[
-                    { label: "Linear", value: "0" },
                     { label: "Exponential", value: "1" },
+                    { label: "Linear", value: "0" },
                   ]}
                   value={settings.baseFeeMode}
                   onChange={(v) => update("baseFeeMode", v)}
