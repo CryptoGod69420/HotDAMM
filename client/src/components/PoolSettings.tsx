@@ -50,6 +50,7 @@ export function loadSettings(): PoolSettingsValues {
       if (parsed.startingFeeBps && !parsed.feeTierBps) {
         parsed.feeTierBps = parsed.startingFeeBps;
       }
+      delete parsed.enableFeeScheduler;
       const merged = { ...DEFAULT_SETTINGS, ...parsed };
       if (merged.collectFeeMode !== "0" && merged.collectFeeMode !== "1") {
         merged.collectFeeMode = "1";
