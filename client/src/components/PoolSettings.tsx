@@ -10,10 +10,7 @@ const SETTINGS_KEY = "meteora-pool-settings";
 export interface PoolSettingsValues {
   depositAmountSol: number;
   baseFeeMode: string;
-  startingFeeBps: number;
-  endingFeeBps: number;
-  feeDurationSeconds: number;
-  feeNumberOfPeriods: number;
+  feeTierBps: number;
   enableDynamicFee: boolean;
   dynamicFeeMaxBps: number;
   collectFeeMode: string;
@@ -22,13 +19,14 @@ export interface PoolSettingsValues {
   enableFeeScheduler: boolean;
 }
 
+export const FEE_SCHEDULE_START_BPS = 5000;
+export const FEE_SCHEDULE_DURATION_SECONDS = 86400;
+export const FEE_SCHEDULE_NUM_PERIODS = 100;
+
 const DEFAULT_SETTINGS: PoolSettingsValues = {
   depositAmountSol: 0.2,
   baseFeeMode: "1",
-  startingFeeBps: 100,
-  endingFeeBps: 25,
-  feeDurationSeconds: 300,
-  feeNumberOfPeriods: 50,
+  feeTierBps: 100,
   enableDynamicFee: true,
   dynamicFeeMaxBps: 25,
   collectFeeMode: "1",
@@ -51,6 +49,9 @@ export function loadSettings(): PoolSettingsValues {
     const raw = localStorage.getItem(SETTINGS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
+      if (parsed.startingFeeBps && !parsed.feeTierBps) {
+        parsed.feeTierBps = parsed.startingFeeBps;
+      }
       const merged = { ...DEFAULT_SETTINGS, ...parsed };
       if (merged.collectFeeMode !== "0" && merged.collectFeeMode !== "1") {
         merged.collectFeeMode = "1";
@@ -145,16 +146,20 @@ export function PoolSettings({ onSaved }: Props) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Fee Tier</p>
-              <p className="text-xs text-muted-foreground">Starting fee for the pool</p>
+              <p className="text-xs text-muted-foreground">
+                {settings.enableFeeScheduler
+                  ? "Target fee after 24h decay from 50%"
+                  : "Base fee for the pool"}
+              </p>
             </div>
             <div className="flex items-center gap-1 flex-wrap justify-end">
               {FEE_TIERS.map((tier) => (
                 <button
                   key={tier.bps}
                   type="button"
-                  onClick={() => update("startingFeeBps", tier.bps)}
+                  onClick={() => update("feeTierBps", tier.bps)}
                   className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                    settings.startingFeeBps === tier.bps
+                    settings.feeTierBps === tier.bps
                       ? "bg-foreground text-background"
                       : "bg-muted/50 border text-muted-foreground hover-elevate"
                   }`}

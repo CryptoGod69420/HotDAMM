@@ -21,6 +21,7 @@ import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { getTokenMintInfo } from "@/utils/tokenUtils";
 import { selectStaticConfig, getAllMatchingConfigs } from "@/utils/meteoraConfigs";
+import { FEE_SCHEDULE_START_BPS, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -50,10 +51,8 @@ const formSchema = z.object({
   tokenAAmount: z.coerce.number().positive("Must be > 0"),
   tokenBAmount: z.coerce.number().positive("Must be > 0"),
   baseFeeMode: z.string().default("1"),
-  startingFeeBps: z.coerce.number().min(0).max(10000).default(500),
-  endingFeeBps: z.coerce.number().min(0).max(10000).default(25),
-  feeDurationSeconds: z.coerce.number().min(1).default(300),
-  feeNumberOfPeriods: z.coerce.number().min(1).default(50),
+  feeTierBps: z.coerce.number().min(0).max(10000).default(100),
+  enableFeeScheduler: z.boolean().default(true),
   enableDynamicFee: z.boolean().default(true),
   dynamicFeeMaxBps: z.coerce.number().min(0).max(10000).default(25),
   collectFeeMode: z.string().default("0"),
@@ -104,10 +103,8 @@ export function OpenPositionForm({ onSuccess }: Props) {
       tokenAAmount: 0,
       tokenBAmount: 0,
       baseFeeMode: "1",
-      startingFeeBps: 500,
-      endingFeeBps: 25,
-      feeDurationSeconds: 300,
-      feeNumberOfPeriods: 50,
+      feeTierBps: 100,
+      enableFeeScheduler: true,
       enableDynamicFee: true,
       dynamicFeeMaxBps: 25,
       collectFeeMode: "0",
@@ -172,13 +169,20 @@ export function OpenPositionForm({ onSuccess }: Props) {
 
       const baseFeeParams = getBaseFeeParams(
         {
-          baseFeeMode: baseFeeModeNum,
-          feeTimeSchedulerParam: {
-            startingFeeBps: values.startingFeeBps,
-            endingFeeBps: values.endingFeeBps,
-            numberOfPeriod: values.feeNumberOfPeriods,
-            totalDuration: values.feeDurationSeconds,
-          },
+          baseFeeMode: values.enableFeeScheduler ? baseFeeModeNum : (0 as BaseFeeMode),
+          feeTimeSchedulerParam: values.enableFeeScheduler
+            ? {
+                startingFeeBps: FEE_SCHEDULE_START_BPS,
+                endingFeeBps: values.feeTierBps,
+                numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
+                totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
+              }
+            : {
+                startingFeeBps: values.feeTierBps,
+                endingFeeBps: values.feeTierBps,
+                numberOfPeriod: 1,
+                totalDuration: 1,
+              },
         },
         orderedDecimalsB,
         activationTypeNum === 1
@@ -204,7 +208,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
       const selectedConfig = selectStaticConfig(
         collectFeeModeNum,
         values.enableDynamicFee,
-        values.startingFeeBps,
+        values.feeTierBps,
       );
 
       const allMatchingConfigs = getAllMatchingConfigs(
@@ -441,87 +445,49 @@ export function OpenPositionForm({ onSuccess }: Props) {
               )}
             />
 
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="startingFeeBps"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Starting Fee (bps)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-starting-fee"
-                        {...field}
-                      />
-                    </FormControl>
+            <FormField
+              control={form.control}
+              name="feeTierBps"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-xs">Fee Tier (bps)</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      data-testid="input-fee-tier"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    {(field.value / 100).toFixed(2)}%
+                    {form.watch("enableFeeScheduler") && " — decays from 50% over 24h"}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="enableFeeScheduler"
+              render={({ field }) => (
+                <FormItem className="flex items-center justify-between gap-2">
+                  <div>
+                    <FormLabel className="text-xs">Fee Scheduler</FormLabel>
                     <FormDescription className="text-xs">
-                      {(field.value / 100).toFixed(2)}%
+                      Start at 50%, decay to fee tier over 24h
                     </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="endingFeeBps"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Ending Fee (bps)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-ending-fee"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormDescription className="text-xs">
-                      {(field.value / 100).toFixed(2)}%
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <FormField
-                control={form.control}
-                name="feeDurationSeconds"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Duration (seconds)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-fee-duration"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="feeNumberOfPeriods"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs">Number of Periods</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        data-testid="input-fee-periods"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </div>
+                  </div>
+                  <FormControl>
+                    <Switch
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                      data-testid="switch-fee-scheduler"
+                    />
+                  </FormControl>
+                </FormItem>
+              )}
+            />
 
             <div className="space-y-3 pt-1">
               <FormField

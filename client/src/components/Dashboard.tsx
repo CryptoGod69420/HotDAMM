@@ -30,7 +30,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
-import { PoolSettings, loadSettings } from "./PoolSettings";
+import { PoolSettings, loadSettings, FEE_SCHEDULE_START_BPS, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
 import { Portfolio } from "./Portfolio";
 import {
   shortenAddress,
@@ -285,14 +285,14 @@ export function Dashboard() {
           baseFeeMode: settings.enableFeeScheduler ? baseFeeModeNum : (0 as BaseFeeMode),
           feeTimeSchedulerParam: settings.enableFeeScheduler
             ? {
-                startingFeeBps: settings.startingFeeBps,
-                endingFeeBps: settings.endingFeeBps,
-                numberOfPeriod: settings.feeNumberOfPeriods,
-                totalDuration: settings.feeDurationSeconds,
+                startingFeeBps: FEE_SCHEDULE_START_BPS,
+                endingFeeBps: settings.feeTierBps,
+                numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
+                totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
               }
             : {
-                startingFeeBps: settings.startingFeeBps,
-                endingFeeBps: settings.startingFeeBps,
+                startingFeeBps: settings.feeTierBps,
+                endingFeeBps: settings.feeTierBps,
                 numberOfPeriod: 1,
                 totalDuration: 1,
               },
@@ -321,7 +321,7 @@ export function Dashboard() {
       const selectedConfig = selectStaticConfig(
         collectFeeModeNum,
         settings.enableDynamicFee,
-        settings.startingFeeBps,
+        settings.feeTierBps,
       );
 
       const allMatchingConfigs = getAllMatchingConfigs(
