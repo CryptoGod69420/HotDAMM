@@ -5,9 +5,7 @@ export function useEmbeddedWallet() {
   const { ready: privyReady } = usePrivy();
   const { wallets } = useWallets();
 
-  const embeddedWallet = wallets.find(
-    (w) => w.walletClientType === "privy"
-  );
+  const embeddedWallet = wallets.find((w) => w.address) || null;
 
   return {
     embeddedWallet,
