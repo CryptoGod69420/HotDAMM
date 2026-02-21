@@ -226,7 +226,7 @@ export function Dashboard() {
         activeWallet,
         searchResult.mint,
         halfSol,
-        100
+        500
       );
 
       console.log("Jupiter swap complete:", swapResult.signature);
