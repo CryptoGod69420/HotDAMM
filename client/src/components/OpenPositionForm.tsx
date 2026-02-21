@@ -186,8 +186,8 @@ export function OpenPositionForm({ onSuccess }: Props) {
             : {
                 startingFeeBps: values.feeTierBps,
                 endingFeeBps: values.feeTierBps,
-                numberOfPeriod: 1,
-                totalDuration: 1,
+                numberOfPeriod: 0,
+                totalDuration: 0,
               },
         },
         orderedDecimalsB,

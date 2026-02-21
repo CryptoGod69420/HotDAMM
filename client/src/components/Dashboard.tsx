@@ -288,8 +288,8 @@ export function Dashboard() {
             : {
                 startingFeeBps: settings.feeTierBps,
                 endingFeeBps: settings.feeTierBps,
-                numberOfPeriod: 1,
-                totalDuration: 1,
+                numberOfPeriod: 0,
+                totalDuration: 0,
               },
         },
         orderedDecimalsB,
