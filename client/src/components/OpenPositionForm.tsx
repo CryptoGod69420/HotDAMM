@@ -203,8 +203,6 @@ export function OpenPositionForm({ onSuccess }: Props) {
       const positionNftMint = Keypair.generate();
       const collectFeeModeNum = parseInt(values.collectFeeMode);
 
-      const DEFAULT_POOL_CREATOR_AUTHORITY = new PublicKey(new Uint8Array(32));
-
       const selectedConfig = selectStaticConfig(
         collectFeeModeNum,
         values.enableDynamicFee,
@@ -229,7 +227,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
             payer: walletPublicKey,
             creator: walletPublicKey,
             config: configKey,
-            poolCreatorAuthority: DEFAULT_POOL_CREATOR_AUTHORITY,
+            poolCreatorAuthority: walletPublicKey,
             positionNft: positionNftMint.publicKey,
             tokenAMint: orderedMintA,
             tokenBMint: orderedMintB,
@@ -262,14 +260,6 @@ export function OpenPositionForm({ onSuccess }: Props) {
 
       if (!tx) {
         throw new Error("All config keys exhausted — a pool already exists for this token pair with every available config. Try changing your fee settings.");
-      }
-
-      for (const ix of tx.instructions) {
-        for (const key of ix.keys) {
-          if (key.pubkey.equals(DEFAULT_POOL_CREATOR_AUTHORITY) && key.isSigner) {
-            key.isSigner = false;
-          }
-        }
       }
 
       const { blockhash, lastValidBlockHeight } =
