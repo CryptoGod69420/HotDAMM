@@ -51,7 +51,6 @@ const formSchema = z.object({
   tokenBAmount: z.coerce.number().positive("Must be > 0"),
   baseFeeMode: z.string().default("1"),
   feeTierBps: z.coerce.number().min(0).max(10000).default(100),
-  enableFeeScheduler: z.boolean().default(true),
   enableDynamicFee: z.boolean().default(true),
   dynamicFeeMaxBps: z.coerce.number().min(0).max(10000).default(25),
   collectFeeMode: z.string().default("0"),
@@ -102,7 +101,6 @@ export function OpenPositionForm({ onSuccess }: Props) {
       tokenBAmount: 0,
       baseFeeMode: "1",
       feeTierBps: 100,
-      enableFeeScheduler: true,
       enableDynamicFee: true,
       dynamicFeeMaxBps: 25,
       collectFeeMode: "1",
@@ -175,20 +173,13 @@ export function OpenPositionForm({ onSuccess }: Props) {
 
       const baseFeeParams = getBaseFeeParams(
         {
-          baseFeeMode: values.enableFeeScheduler ? baseFeeModeNum : (0 as BaseFeeMode),
-          feeTimeSchedulerParam: values.enableFeeScheduler
-            ? {
-                startingFeeBps: FEE_SCHEDULE_START_BPS,
-                endingFeeBps: values.feeTierBps,
-                numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
-                totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
-              }
-            : {
-                startingFeeBps: values.feeTierBps,
-                endingFeeBps: values.feeTierBps,
-                numberOfPeriod: 0,
-                totalDuration: 0,
-              },
+          baseFeeMode: baseFeeModeNum,
+          feeTimeSchedulerParam: {
+            startingFeeBps: FEE_SCHEDULE_START_BPS,
+            endingFeeBps: values.feeTierBps,
+            numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
+            totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
+          },
         },
         orderedDecimalsB,
         activationTypeNum === 1
@@ -431,35 +422,13 @@ export function OpenPositionForm({ onSuccess }: Props) {
                     />
                   </FormControl>
                   <FormDescription className="text-xs">
-                    {(field.value / 100).toFixed(2)}%
-                    {form.watch("enableFeeScheduler") && " — decays from 50% over 24h"}
+                    {(field.value / 100).toFixed(2)}% — decays from 50% over 24h
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="enableFeeScheduler"
-              render={({ field }) => (
-                <FormItem className="flex items-center justify-between gap-2">
-                  <div>
-                    <FormLabel className="text-xs">Fee Scheduler</FormLabel>
-                    <FormDescription className="text-xs">
-                      Start at 50%, decay to fee tier over 24h
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      data-testid="switch-fee-scheduler"
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
 
             <div className="space-y-3 pt-1">
               <FormField

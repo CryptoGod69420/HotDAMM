@@ -16,7 +16,6 @@ export interface PoolSettingsValues {
   collectFeeMode: string;
   activationType: string;
   activateNow: boolean;
-  enableFeeScheduler: boolean;
 }
 
 export const FEE_SCHEDULE_START_BPS = 5000;
@@ -32,7 +31,6 @@ const DEFAULT_SETTINGS: PoolSettingsValues = {
   collectFeeMode: "1",
   activationType: "1",
   activateNow: true,
-  enableFeeScheduler: true,
 };
 
 const FEE_TIERS = [
@@ -147,9 +145,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium">Fee Tier</p>
               <p className="text-xs text-muted-foreground">
-                {settings.enableFeeScheduler
-                  ? "Target fee after 24h decay from 50%"
-                  : "Base fee for the pool"}
+Target fee after 24h decay from 50%
               </p>
             </div>
             <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -211,41 +207,19 @@ export function PoolSettings({ onSaved }: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">Fee Scheduler</p>
-              <p className="text-xs text-muted-foreground">Gradually reduce fees over time</p>
+              <p className="text-sm font-medium">Fee Decay Mode</p>
+              <p className="text-xs text-muted-foreground">Fees start at 50% and decay to your tier over 24h</p>
             </div>
             <ToggleGroup
               options={[
-                { label: "No", value: "no" },
-                { label: "Yes", value: "yes" },
+                { label: "Exponential", value: "1" },
+                { label: "Linear", value: "0" },
               ]}
-              value={settings.enableFeeScheduler ? "yes" : "no"}
-              onChange={(v) => update("enableFeeScheduler", v === "yes")}
-              testIdPrefix="toggle-fee-scheduler"
+              value={settings.baseFeeMode}
+              onChange={(v) => update("baseFeeMode", v)}
+              testIdPrefix="toggle-fee-mode"
             />
           </div>
-
-          {settings.enableFeeScheduler && (
-            <>
-              <div className="h-px bg-border" />
-
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-sm font-medium">Fee Scheduler Mode</p>
-                  <p className="text-xs text-muted-foreground">How fees decrease over time</p>
-                </div>
-                <ToggleGroup
-                  options={[
-                    { label: "Exponential", value: "1" },
-                    { label: "Linear", value: "0" },
-                  ]}
-                  value={settings.baseFeeMode}
-                  onChange={(v) => update("baseFeeMode", v)}
-                  testIdPrefix="toggle-fee-mode"
-                />
-              </div>
-            </>
-          )}
         </CardContent>
       </Card>
 
