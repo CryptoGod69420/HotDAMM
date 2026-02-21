@@ -21,7 +21,7 @@ export interface PoolSettingsValues {
 
 export const FEE_SCHEDULE_START_BPS = 5000;
 export const FEE_SCHEDULE_DURATION_SECONDS = 86400;
-export const FEE_SCHEDULE_NUM_PERIODS = 100;
+export const FEE_SCHEDULE_NUM_PERIODS = 144;
 
 const DEFAULT_SETTINGS: PoolSettingsValues = {
   depositAmountSol: 0.2,
