@@ -274,8 +274,6 @@ export function OpenPositionForm({ onSuccess }: Props) {
         ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 100_000 })
       );
 
-      tx.partialSign(positionNftMint);
-
       const serializedTx = tx.serialize({
         requireAllSignatures: false,
         verifySignatures: false,
@@ -296,7 +294,10 @@ export function OpenPositionForm({ onSuccess }: Props) {
         signedTxBytes = new Uint8Array(signResult.signedTransaction);
       }
 
-      const txid = await connection.sendRawTransaction(signedTxBytes, {
+      const signedTx = Transaction.from(signedTxBytes);
+      signedTx.partialSign(positionNftMint);
+
+      const txid = await connection.sendRawTransaction(signedTx.serialize(), {
         skipPreflight: false,
         preflightCommitment: "confirmed",
         maxRetries: 3,

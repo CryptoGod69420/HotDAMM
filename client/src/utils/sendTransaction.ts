@@ -58,8 +58,6 @@ export async function signAndSendPoolCreation(
   transaction.recentBlockhash = blockhash;
   transaction.feePayer = new PublicKey(wallet.address);
 
-  transaction.partialSign(positionNftMint);
-
   const serializedTx = transaction.serialize({
     requireAllSignatures: false,
     verifySignatures: false,
@@ -80,7 +78,10 @@ export async function signAndSendPoolCreation(
     rawSignedTx = new Uint8Array(result.signedTransaction);
   }
 
-  const txid = await connection.sendRawTransaction(rawSignedTx, {
+  const signedTx = Transaction.from(rawSignedTx);
+  signedTx.partialSign(positionNftMint);
+
+  const txid = await connection.sendRawTransaction(signedTx.serialize(), {
     skipPreflight: false,
     preflightCommitment: "confirmed",
   });
