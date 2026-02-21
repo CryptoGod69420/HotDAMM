@@ -81,7 +81,7 @@ export async function signAndSendPoolCreation(
   }
 
   const txid = await connection.sendRawTransaction(rawSignedTx, {
-    skipPreflight: false,
+    skipPreflight: true,
     preflightCommitment: "confirmed",
   });
 
