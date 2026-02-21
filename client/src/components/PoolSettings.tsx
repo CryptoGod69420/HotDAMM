@@ -198,8 +198,8 @@ export function PoolSettings({ onSaved }: Props) {
             </div>
             <ToggleGroup
               options={[
-                { label: "Quote (B)", value: "1" },
-                { label: "Both", value: "0" },
+                { label: "SOL Only", value: "1" },
+                { label: "Both Tokens", value: "0" },
               ]}
               value={settings.collectFeeMode}
               onChange={(v) => update("collectFeeMode", v)}

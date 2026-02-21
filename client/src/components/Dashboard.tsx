@@ -253,19 +253,15 @@ export function Dashboard() {
           .toFixed(0)
       );
 
-      const tokenBuf = tokenMint.toBuffer();
-      const solBuf = solMint.toBuffer();
-      const tokenFirst = Buffer.compare(tokenBuf, solBuf) > 0;
+      const orderedMintA = tokenMint;
+      const orderedMintB = solMint;
+      const orderedAmountA = tokenAmountBN;
+      const orderedAmountB = solAmountBN;
+      const orderedProgramA = searchResult.tokenProgram;
+      const orderedProgramB = solInfo.tokenProgram;
+      const orderedDecimalsB = solDecimals;
 
-      const orderedMintA = tokenFirst ? tokenMint : solMint;
-      const orderedMintB = tokenFirst ? solMint : tokenMint;
-      const orderedAmountA = tokenFirst ? tokenAmountBN : solAmountBN;
-      const orderedAmountB = tokenFirst ? solAmountBN : tokenAmountBN;
-      const orderedProgramA = tokenFirst ? searchResult.tokenProgram : solInfo.tokenProgram;
-      const orderedProgramB = tokenFirst ? solInfo.tokenProgram : searchResult.tokenProgram;
-      const orderedDecimalsB = tokenFirst ? solDecimals : searchResult.decimals;
-
-      console.log("Mint ordering:", tokenFirst ? "token first" : "SOL first",
+      console.log("Mint ordering: Token=A, SOL=B (quote)",
         "| A:", orderedMintA.toBase58().slice(0, 8),
         "| B:", orderedMintB.toBase58().slice(0, 8));
 

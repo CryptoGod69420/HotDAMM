@@ -71,8 +71,7 @@ const FEE_MODE_OPTIONS = [
 
 const COLLECT_FEE_OPTIONS = [
   { value: "0", label: "Both Tokens" },
-  { value: "1", label: "Only Token A" },
-  { value: "2", label: "Only Token B" },
+  { value: "1", label: "SOL Only (Quote)" },
 ];
 
 const ACTIVATION_OPTIONS = [
@@ -106,7 +105,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
       enableFeeScheduler: true,
       enableDynamicFee: true,
       dynamicFeeMaxBps: 25,
-      collectFeeMode: "0",
+      collectFeeMode: "1",
       activationType: "1",
       activateNow: true,
     },
@@ -144,17 +143,25 @@ export function OpenPositionForm({ onSuccess }: Props) {
           .toFixed(0)
       );
 
-      const bufA = tokenAMint.toBuffer();
-      const bufB = tokenBMint.toBuffer();
-      const aFirst = Buffer.compare(bufA, bufB) > 0;
+      const WSOL = "So11111111111111111111111111111111111111112";
+      const aIsSol = tokenAMint.toBase58() === WSOL;
+      const bIsSol = tokenBMint.toBase58() === WSOL;
 
-      const orderedMintA = aFirst ? tokenAMint : tokenBMint;
-      const orderedMintB = aFirst ? tokenBMint : tokenAMint;
-      const orderedAmountA = aFirst ? tokenAAmountBN : tokenBAmountBN;
-      const orderedAmountB = aFirst ? tokenBAmountBN : tokenAAmountBN;
-      const orderedProgramA = aFirst ? (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID);
-      const orderedProgramB = aFirst ? (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID);
-      const orderedDecimalsB = aFirst ? tokenBInfo.decimals : tokenAInfo.decimals;
+      if (!aIsSol && !bIsSol) {
+        setError("One of the tokens must be SOL (WSOL). SOL must always be the quote token.");
+        setSubmitting(false);
+        return;
+      }
+
+      const solIsA = aIsSol && !bIsSol;
+
+      const orderedMintA = solIsA ? tokenBMint : tokenAMint;
+      const orderedMintB = solIsA ? tokenAMint : tokenBMint;
+      const orderedAmountA = solIsA ? tokenBAmountBN : tokenAAmountBN;
+      const orderedAmountB = solIsA ? tokenAAmountBN : tokenBAmountBN;
+      const orderedProgramA = solIsA ? (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID);
+      const orderedProgramB = solIsA ? (tokenAInfo.tokenProgram || TOKEN_PROGRAM_ID) : (tokenBInfo.tokenProgram || TOKEN_PROGRAM_ID);
+      const orderedDecimalsB = solIsA ? tokenAInfo.decimals : tokenBInfo.decimals;
 
       const { initSqrtPrice, liquidityDelta } = cpAmm.preparePoolCreationParams({
         tokenAAmount: orderedAmountA,
