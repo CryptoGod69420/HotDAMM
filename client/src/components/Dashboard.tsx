@@ -30,7 +30,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
-import { PoolSettings, loadSettings, FEE_SCHEDULE_START_BPS, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
+import { PoolSettings, loadSettings, getStartingFeeBps, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
 import { Portfolio } from "./Portfolio";
 import {
   shortenAddress,
@@ -279,7 +279,7 @@ export function Dashboard() {
         {
           baseFeeMode: baseFeeModeNum,
           feeTimeSchedulerParam: {
-            startingFeeBps: FEE_SCHEDULE_START_BPS,
+            startingFeeBps: getStartingFeeBps(settings),
             endingFeeBps: settings.feeTierBps,
             numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
             totalDuration: FEE_SCHEDULE_DURATION_SECONDS,

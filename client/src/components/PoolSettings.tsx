@@ -16,11 +16,17 @@ export interface PoolSettingsValues {
   collectFeeMode: string;
   activationType: string;
   activateNow: boolean;
+  maxExtract: boolean;
 }
 
 export const FEE_SCHEDULE_START_BPS = 5000;
+export const FEE_SCHEDULE_START_BPS_MAX_EXTRACT = 9900;
 export const FEE_SCHEDULE_DURATION_SECONDS = 86400;
 export const FEE_SCHEDULE_NUM_PERIODS = 144;
+
+export function getStartingFeeBps(settings: PoolSettingsValues): number {
+  return settings.maxExtract ? FEE_SCHEDULE_START_BPS_MAX_EXTRACT : FEE_SCHEDULE_START_BPS;
+}
 
 const DEFAULT_SETTINGS: PoolSettingsValues = {
   depositAmountSol: 0.2,
@@ -31,6 +37,7 @@ const DEFAULT_SETTINGS: PoolSettingsValues = {
   collectFeeMode: "1",
   activationType: "1",
   activateNow: true,
+  maxExtract: false,
 };
 
 const FEE_TIERS = [
@@ -146,7 +153,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium">Fee Tier</p>
               <p className="text-xs text-muted-foreground">
-Target fee after 24h decay from 50%
+                Target fee after 24h decay from {settings.maxExtract ? "99%" : "50%"}
               </p>
             </div>
             <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -166,6 +173,26 @@ Target fee after 24h decay from 50%
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Max Extract</p>
+              <p className="text-xs text-muted-foreground">
+                Start fee decay from 99% instead of 50%
+              </p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "No", value: "no" },
+                { label: "Yes", value: "yes" },
+              ]}
+              value={settings.maxExtract ? "yes" : "no"}
+              onChange={(v) => update("maxExtract", v === "yes")}
+              testIdPrefix="toggle-max-extract"
+            />
           </div>
 
           <div className="h-px bg-border" />
@@ -209,7 +236,7 @@ Target fee after 24h decay from 50%
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Fee Decay Mode</p>
-              <p className="text-xs text-muted-foreground">Fees start at 50% and decay to your tier over 24h</p>
+              <p className="text-xs text-muted-foreground">Fees start at {settings.maxExtract ? "99%" : "50%"} and decay to your tier over 24h</p>
             </div>
             <ToggleGroup
               options={[

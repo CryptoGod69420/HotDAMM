@@ -20,7 +20,7 @@ import { useWallets } from "@privy-io/react-auth/solana";
 import { useConnection } from "@/hooks/useConnection";
 import { useCpAmm } from "@/hooks/useCpAmm";
 import { getTokenMintInfo } from "@/utils/tokenUtils";
-import { FEE_SCHEDULE_START_BPS, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
+import { loadSettings, getStartingFeeBps, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -175,7 +175,7 @@ export function OpenPositionForm({ onSuccess }: Props) {
         {
           baseFeeMode: baseFeeModeNum,
           feeTimeSchedulerParam: {
-            startingFeeBps: FEE_SCHEDULE_START_BPS,
+            startingFeeBps: getStartingFeeBps(loadSettings()),
             endingFeeBps: values.feeTierBps,
             numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
             totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
