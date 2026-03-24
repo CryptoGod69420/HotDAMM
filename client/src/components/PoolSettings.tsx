@@ -153,7 +153,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium">Fee Tier</p>
               <p className="text-xs text-muted-foreground">
-                Target fee after 24h decay from {settings.maxExtract ? "99%" : "50%"}
+                Target fee after 24h decay
               </p>
             </div>
             <div className="flex items-center gap-1 flex-wrap justify-end">
@@ -216,7 +216,7 @@ export function PoolSettings({ onSaved }: Props) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Fee Decay Mode</p>
-              <p className="text-xs text-muted-foreground">Fees start at {settings.maxExtract ? "99%" : "50%"} and decay to your tier over 24h</p>
+              <p className="text-xs text-muted-foreground">Fees start high and decay to your tier over 24h</p>
             </div>
             <ToggleGroup
               options={[
@@ -235,6 +235,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium flex items-center gap-2">
                 Max Extract
+                <span>🔥</span>
                 <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary/15 text-primary leading-none">
                   New!
                 </span>
