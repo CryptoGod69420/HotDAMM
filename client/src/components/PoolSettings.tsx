@@ -173,7 +173,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium">Fee Tier</p>
               <p className="text-xs text-muted-foreground">
-                Target fee after 24h decay
+                Target fee after decay (when decay is on)
               </p>
             </div>
             <div className="flex items-center gap-1 flex-wrap justify-end">
