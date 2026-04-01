@@ -17,6 +17,8 @@ export interface PoolSettingsValues {
   activationType: string;
   activateNow: boolean;
   maxExtract: boolean;
+  feeDecayEnabled: boolean;
+  feeDurationPreset: string;
 }
 
 export const FEE_SCHEDULE_START_BPS = 5000;
@@ -26,6 +28,22 @@ export const FEE_SCHEDULE_NUM_PERIODS = 144;
 
 export function getStartingFeeBps(settings: PoolSettingsValues): number {
   return settings.maxExtract ? FEE_SCHEDULE_START_BPS_MAX_EXTRACT : FEE_SCHEDULE_START_BPS;
+}
+
+const DURATION_SECONDS: Record<string, number> = {
+  "24h": 86400,
+  "7d": 604800,
+  "30d": 2592000,
+  "90d": 7776000,
+  "max": 28771200,
+};
+
+export function getFeeDurationParams(settings: PoolSettingsValues): { numberOfPeriod: number; totalDuration: number } {
+  if (!settings.feeDecayEnabled) {
+    return { numberOfPeriod: 0, totalDuration: 0 };
+  }
+  const totalDuration = DURATION_SECONDS[settings.feeDurationPreset] ?? 86400;
+  return { numberOfPeriod: 144, totalDuration };
 }
 
 const DEFAULT_SETTINGS: PoolSettingsValues = {
@@ -38,6 +56,8 @@ const DEFAULT_SETTINGS: PoolSettingsValues = {
   activationType: "1",
   activateNow: true,
   maxExtract: false,
+  feeDecayEnabled: true,
+  feeDurationPreset: "24h",
 };
 
 const FEE_TIERS = [
@@ -216,7 +236,7 @@ export function PoolSettings({ onSaved }: Props) {
           <div className="flex items-center justify-between gap-4">
             <div>
               <p className="text-sm font-medium">Fee Decay Mode</p>
-              <p className="text-xs text-muted-foreground">Fees start high and decay to your tier over 24h</p>
+              <p className="text-xs text-muted-foreground">Fees start high and decay to your tier over time</p>
             </div>
             <ToggleGroup
               options={[
@@ -226,6 +246,49 @@ export function PoolSettings({ onSaved }: Props) {
               value={settings.baseFeeMode}
               onChange={(v) => update("baseFeeMode", v)}
               testIdPrefix="toggle-fee-mode"
+            />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Fee Decay</p>
+              <p className="text-xs text-muted-foreground">
+                {settings.feeDecayEnabled ? "Fee decays to your tier over the duration" : "Fee locked at starting level permanently"}
+              </p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "Off", value: "off" },
+                { label: "On", value: "on" },
+              ]}
+              value={settings.feeDecayEnabled ? "on" : "off"}
+              onChange={(v) => update("feeDecayEnabled", v === "on")}
+              testIdPrefix="toggle-fee-decay"
+            />
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Fee Duration</p>
+              <p className="text-xs text-muted-foreground">
+                {settings.feeDecayEnabled ? "How long the fee takes to decay to your tier" : "No effect while fee decay is off"}
+              </p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "24h", value: "24h" },
+                { label: "7d", value: "7d" },
+                { label: "30d", value: "30d" },
+                { label: "90d", value: "90d" },
+                { label: "Max", value: "max" },
+              ]}
+              value={settings.feeDurationPreset}
+              onChange={(v) => update("feeDurationPreset", v)}
+              testIdPrefix="toggle-fee-duration"
             />
           </div>
 

@@ -30,7 +30,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
-import { PoolSettings, loadSettings, getStartingFeeBps, FEE_SCHEDULE_DURATION_SECONDS, FEE_SCHEDULE_NUM_PERIODS } from "./PoolSettings";
+import { PoolSettings, loadSettings, getStartingFeeBps, getFeeDurationParams } from "./PoolSettings";
 import { Portfolio } from "./Portfolio";
 import {
   shortenAddress,
@@ -275,14 +275,18 @@ export function Dashboard() {
       const activationTypeNum = parseInt(settings.activationType);
       const baseFeeModeNum = parseInt(settings.baseFeeMode) as BaseFeeMode;
 
+      const { numberOfPeriod, totalDuration } = getFeeDurationParams(settings);
+      const startingFeeBps = getStartingFeeBps(settings);
+      const endingFeeBps = settings.feeDecayEnabled ? settings.feeTierBps : startingFeeBps;
+
       const baseFeeParams = getBaseFeeParams(
         {
           baseFeeMode: baseFeeModeNum,
           feeTimeSchedulerParam: {
-            startingFeeBps: getStartingFeeBps(settings),
-            endingFeeBps: settings.feeTierBps,
-            numberOfPeriod: FEE_SCHEDULE_NUM_PERIODS,
-            totalDuration: FEE_SCHEDULE_DURATION_SECONDS,
+            startingFeeBps,
+            endingFeeBps,
+            numberOfPeriod,
+            totalDuration,
           },
         },
         orderedDecimalsB,
