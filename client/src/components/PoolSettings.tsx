@@ -306,7 +306,7 @@ export function PoolSettings({ onSaved }: Props) {
             <div>
               <p className="text-sm font-medium">Pool Fee</p>
               <p className="text-xs text-muted-foreground">
-                Starting fee level — 50% standard or 99% Max Extract
+                {settings.feeDecayEnabled ? "Starting fee level" : "Fee level"} — 50% standard or 99% Max Extract
               </p>
             </div>
             <ToggleGroup
