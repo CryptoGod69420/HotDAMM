@@ -304,21 +304,15 @@ export function PoolSettings({ onSaved }: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium flex items-center gap-2">
-                Max Extract
-                <span>🔥</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary/15 text-primary leading-none">
-                  New!
-                </span>
-              </p>
+              <p className="text-sm font-medium">Pool Fee</p>
               <p className="text-xs text-muted-foreground">
-                Start fee decay from 99% instead of 50%
+                Starting fee level — 50% standard or 99% Max Extract
               </p>
             </div>
             <ToggleGroup
               options={[
-                { label: "No", value: "no" },
-                { label: "Yes", value: "yes" },
+                { label: "50%", value: "no" },
+                { label: "Max Extract 🔥", value: "yes" },
               ]}
               value={settings.maxExtract ? "yes" : "no"}
               onChange={(v) => update("maxExtract", v === "yes")}
