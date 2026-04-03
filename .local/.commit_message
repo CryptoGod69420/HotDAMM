@@ -1,0 +1,9 @@
+Max Extract UI polish: reorder to bottom, add New! badge
+
+Task: #2 - Max Extract UI polish
+
+Changes:
+- PoolSettings.tsx: Moved the Max Extract toggle row to the bottom of the settings card, after "Fee Decay Mode" (was previously between "Fee Tier" and "Dynamic Fee")
+- PoolSettings.tsx: Added a small "New!" pill badge inline next to the "Max Extract" label, styled with bg-primary/15 and text-primary for a subtle but visible purple highlight consistent with the app's purple primary color
+
+No functional or logic changes. The order is now: Deposit Amount → Fee Tier → Dynamic Fee → Fee Collection Token → Fee Decay Mode → Max Extract.

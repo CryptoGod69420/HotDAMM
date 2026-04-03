@@ -1,0 +1,13 @@
+VERDICT: APPROVED
+
+The changes correctly add the maxExtract setting, persist it via localStorage, update UI descriptions, and route pool creation through getStartingFeeBps so the starting fee switches between 5000 and 9900 bps based on the toggle. The VERDICT: APPROVED
+new toggle sits below Fee Tier, the fee description updates dynamically, and 
+creation paths in Dashboard and OpenPositionForm use the new helper. No functional regressions or missing core requirements were found.
+
+Security: none observed.
+
+Next actions: none required.The changes correctly add the maxExtract setting, persist it via localStorage, update UI descriptions, and route pool creation through getStartingFeeBps so the starting fee switches between 5000 and 9900 bps based on the toggle. The new toggle sits below Fee Tier, the fee description updates dynamically, and creation paths in Dashboard and OpenPositionForm use the new helper. No functional regressions or missing core requirements were found.
+
+Security: none observed.
+
+Next actions: none required.
