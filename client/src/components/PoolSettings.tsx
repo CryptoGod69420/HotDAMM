@@ -171,29 +171,53 @@ export function PoolSettings({ onSaved }: Props) {
 
           <div className="flex items-center justify-between gap-4">
             <div>
-              <p className="text-sm font-medium">Fee Tier</p>
+              <p className="text-sm font-medium">Fee Decay</p>
               <p className="text-xs text-muted-foreground">
-                Target fee after decay (when decay is on)
+                {settings.feeDecayEnabled ? "Fee decays to your tier over the duration" : "Fee locked at starting level permanently"}
               </p>
             </div>
-            <div className="flex items-center gap-1 flex-wrap justify-end">
-              {FEE_TIERS.map((tier) => (
-                <button
-                  key={tier.bps}
-                  type="button"
-                  onClick={() => update("feeTierBps", tier.bps)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
-                    settings.feeTierBps === tier.bps
-                      ? "bg-foreground text-background"
-                      : "bg-muted/50 border text-muted-foreground hover-elevate"
-                  }`}
-                  data-testid={`button-fee-tier-${tier.bps}`}
-                >
-                  {tier.label}
-                </button>
-              ))}
-            </div>
+            <ToggleGroup
+              options={[
+                { label: "Off", value: "off" },
+                { label: "On", value: "on" },
+              ]}
+              value={settings.feeDecayEnabled ? "on" : "off"}
+              onChange={(v) => update("feeDecayEnabled", v === "on")}
+              testIdPrefix="toggle-fee-decay"
+            />
           </div>
+
+          {settings.feeDecayEnabled && (
+            <>
+              <div className="h-px bg-border" />
+
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Fee Tier</p>
+                  <p className="text-xs text-muted-foreground">
+                    Target fee after decay
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 flex-wrap justify-end">
+                  {FEE_TIERS.map((tier) => (
+                    <button
+                      key={tier.bps}
+                      type="button"
+                      onClick={() => update("feeTierBps", tier.bps)}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-full transition-colors ${
+                        settings.feeTierBps === tier.bps
+                          ? "bg-foreground text-background"
+                          : "bg-muted/50 border text-muted-foreground hover-elevate"
+                      }`}
+                      data-testid={`button-fee-tier-${tier.bps}`}
+                    >
+                      {tier.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="h-px bg-border" />
 
@@ -231,66 +255,50 @@ export function PoolSettings({ onSaved }: Props) {
             />
           </div>
 
-          <div className="h-px bg-border" />
+          {settings.feeDecayEnabled && (
+            <>
+              <div className="h-px bg-border" />
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Fee Decay Mode</p>
-              <p className="text-xs text-muted-foreground">Fees start high and decay to your tier over time</p>
-            </div>
-            <ToggleGroup
-              options={[
-                { label: "Exponential", value: "1" },
-                { label: "Linear", value: "0" },
-              ]}
-              value={settings.baseFeeMode}
-              onChange={(v) => update("baseFeeMode", v)}
-              testIdPrefix="toggle-fee-mode"
-            />
-          </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Fee Decay Mode</p>
+                  <p className="text-xs text-muted-foreground">Fees start high and decay to your tier over time</p>
+                </div>
+                <ToggleGroup
+                  options={[
+                    { label: "Exponential", value: "1" },
+                    { label: "Linear", value: "0" },
+                  ]}
+                  value={settings.baseFeeMode}
+                  onChange={(v) => update("baseFeeMode", v)}
+                  testIdPrefix="toggle-fee-mode"
+                />
+              </div>
 
-          <div className="h-px bg-border" />
+              <div className="h-px bg-border" />
 
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Fee Decay</p>
-              <p className="text-xs text-muted-foreground">
-                {settings.feeDecayEnabled ? "Fee decays to your tier over the duration" : "Fee locked at starting level permanently"}
-              </p>
-            </div>
-            <ToggleGroup
-              options={[
-                { label: "Off", value: "off" },
-                { label: "On", value: "on" },
-              ]}
-              value={settings.feeDecayEnabled ? "on" : "off"}
-              onChange={(v) => update("feeDecayEnabled", v === "on")}
-              testIdPrefix="toggle-fee-decay"
-            />
-          </div>
-
-          <div className="h-px bg-border" />
-
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Fee Duration</p>
-              <p className="text-xs text-muted-foreground">
-                {settings.feeDecayEnabled ? "How long the fee takes to decay to your tier" : "No effect while fee decay is off"}
-              </p>
-            </div>
-            <ToggleGroup
-              options={[
-                { label: "24h", value: "24h" },
-                { label: "7d", value: "7d" },
-                { label: "30d", value: "30d" },
-                { label: "90d", value: "90d" },
-                { label: "Max", value: "max" },
-              ]}
-              value={settings.feeDurationPreset}
-              onChange={(v) => update("feeDurationPreset", v)}
-              testIdPrefix="toggle-fee-duration"
-            />
-          </div>
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium">Fee Duration</p>
+                  <p className="text-xs text-muted-foreground">
+                    How long the fee takes to decay to your tier
+                  </p>
+                </div>
+                <ToggleGroup
+                  options={[
+                    { label: "24h", value: "24h" },
+                    { label: "7d", value: "7d" },
+                    { label: "30d", value: "30d" },
+                    { label: "90d", value: "90d" },
+                    { label: "Max", value: "max" },
+                  ]}
+                  value={settings.feeDurationPreset}
+                  onChange={(v) => update("feeDurationPreset", v)}
+                  testIdPrefix="toggle-fee-duration"
+                />
+              </div>
+            </>
+          )}
 
           <div className="h-px bg-border" />
 
