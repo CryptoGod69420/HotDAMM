@@ -1030,7 +1030,7 @@ export function Dashboard() {
               Settings
             </Button>
             <Button
-              className="w-full"
+              className="col-span-2 w-full"
               variant="outline"
               size="lg"
               onClick={() => setProfileOpen(true)}
