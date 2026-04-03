@@ -1029,6 +1029,17 @@ export function Dashboard() {
               <Settings className="w-4 h-4 mr-2" />
               Settings
             </Button>
+            <Button
+              className="w-full"
+              variant="outline"
+              size="lg"
+              onClick={() => setProfileOpen(true)}
+              disabled={isCreating}
+              data-testid="button-account-details"
+            >
+              <User className="w-4 h-4 mr-2" />
+              Account & Wallet Details
+            </Button>
           </div>
 
           <Card>
