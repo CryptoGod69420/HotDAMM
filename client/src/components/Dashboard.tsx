@@ -1040,7 +1040,7 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Configure your fee schedule and deposit amount in Settings.
+                  Configure your fee schedule and deposit amount in the settings panel above.
                 </li>
                 <li>
                   Paste a token contract address in the search bar.
