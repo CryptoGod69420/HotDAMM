@@ -1006,7 +1006,9 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3">
+          <PoolSettings onSaved={() => {}} />
+
+          <div className="flex flex-col gap-3">
             <Button
               className="w-full"
               variant="outline"
@@ -1020,17 +1022,6 @@ export function Dashboard() {
             </Button>
             <Button
               className="w-full"
-              variant="outline"
-              size="lg"
-              onClick={() => setView("settings")}
-              disabled={isCreating}
-              data-testid="button-settings"
-            >
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
-            <Button
-              className="col-span-2 w-full"
               variant="outline"
               size="lg"
               onClick={() => setProfileOpen(true)}
