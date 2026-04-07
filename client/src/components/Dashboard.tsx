@@ -55,8 +55,6 @@ import {
   Search,
   User,
   KeyRound,
-  Mail,
-  Shield,
   ArrowDownToLine,
   ArrowUpFromLine,
   Send,
