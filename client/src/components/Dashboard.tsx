@@ -696,7 +696,9 @@ export function Dashboard() {
 
       <Sheet open={profileOpen} onOpenChange={(open) => {
         setProfileOpen(open);
-        if (!open) {
+        if (open) {
+          fetchSolPrice();
+        } else {
           setDepositPanelOpen(false);
           setWithdrawPanelOpen(false);
           setWithdrawError(null);
@@ -921,7 +923,7 @@ export function Dashboard() {
                       data-testid="text-wallet-address"
                       title={walletAddress}
                     >
-                      {walletAddress}
+                      {shortenAddress(walletAddress, 4)}
                     </code>
                     <button
                       onClick={copyAddress}
