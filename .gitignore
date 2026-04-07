@@ -3,4 +3,7 @@ dist
 .DS_Store
 server/public
 vite.config.ts.*
-*.tar.gz
+*.tar.gz*.db
+*.db-shm
+*.db-wal
+metadata.json
