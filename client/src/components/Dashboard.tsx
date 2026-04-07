@@ -763,9 +763,13 @@ export function Dashboard() {
                     </button>
                     <button
                       onClick={() => {
-                        setWithdrawPanelOpen((p) => !p);
+                        const opening = !withdrawPanelOpen;
+                        setWithdrawPanelOpen(opening);
                         setDepositPanelOpen(false);
                         setWithdrawError(null);
+                        if (opening && loginMethod.type === "Wallet" && user?.wallet?.address && !withdrawTo) {
+                          setWithdrawTo(user.wallet.address);
+                        }
                       }}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
                         withdrawPanelOpen
