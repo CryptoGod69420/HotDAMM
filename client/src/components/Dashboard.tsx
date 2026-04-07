@@ -994,9 +994,10 @@ export function Dashboard() {
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span data-testid="text-profile-login-value" className="truncate max-w-[120px]">{loginMethod.value}</span>
+                <span className="font-medium text-foreground shrink-0" data-testid="text-profile-login-method">{loginMethod.type}</span>
+                <span className="shrink-0 truncate max-w-[100px] opacity-60" data-testid="text-profile-login-value">({loginMethod.value})</span>
                 <span className="shrink-0">·</span>
-                <span className="font-semibold text-foreground shrink-0" data-testid="text-profile-login-method">Privy</span>
+                <span className="font-semibold text-foreground shrink-0">Privy</span>
               </div>
             </div>
           </div>
