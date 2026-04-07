@@ -815,7 +815,7 @@ export function Dashboard() {
                     >
                       <button
                         className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors"
-                        data-testid="button-solscan-wallet"
+                        data-testid="button-deposit-solscan-wallet"
                         title="View on Solscan"
                       >
                         <ExternalLink className="w-4 h-4 text-muted-foreground" />
@@ -869,7 +869,7 @@ export function Dashboard() {
                   <Button
                     className="w-full"
                     onClick={handleWithdraw}
-                    disabled={withdrawLoading || !withdrawTo || !withdrawAmount}
+                    disabled={withdrawLoading || !withdrawTo || !withdrawAmount || balance === null}
                     data-testid="button-withdraw-send"
                   >
                     {withdrawLoading ? (
