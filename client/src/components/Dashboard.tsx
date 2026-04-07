@@ -95,6 +95,7 @@ export function Dashboard() {
   const cpAmm = useCpAmm();
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingBalance, setLoadingBalance] = useState(false);
+  const [solPriceUsd, setSolPriceUsd] = useState<number | null>(null);
   const [view, setView] = useState<View>("dashboard");
   const [copied, setCopied] = useState(false);
   const [lastTxSignature, setLastTxSignature] = useState<string | null>(null);
@@ -134,12 +135,29 @@ export function Dashboard() {
     }
   };
 
+  const fetchSolPrice = async () => {
+    try {
+      const res = await fetch(
+        "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd"
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      setSolPriceUsd(data?.solana?.usd ?? null);
+    } catch {
+      // non-critical — price display is optional
+    }
+  };
+
   useEffect(() => {
     if (walletAddress) {
       fetchBalance();
       setWalletTimeout(false);
     }
   }, [walletAddress]);
+
+  useEffect(() => {
+    fetchSolPrice();
+  }, []);
 
   useEffect(() => {
     if (!walletAddress) {
@@ -496,6 +514,10 @@ export function Dashboard() {
     let toPubkey: PublicKey;
     try {
       toPubkey = new PublicKey(withdrawTo.trim());
+      if (!PublicKey.isOnCurve(toPubkey.toBytes())) {
+        setWithdrawError("Invalid Solana address (not on Ed25519 curve).");
+        return;
+      }
     } catch {
       setWithdrawError("Invalid Solana address.");
       return;
@@ -705,6 +727,11 @@ export function Dashboard() {
                       </span>
                       <span className="text-lg font-semibold text-muted-foreground">SOL</span>
                     </div>
+                    {balance !== null && solPriceUsd !== null && (
+                      <p className="text-sm text-muted-foreground tabular-nums" data-testid="text-sol-usd-value">
+                        ≈ ${(balance * solPriceUsd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                      </p>
+                    )}
                   </div>
                   <button
                     onClick={fetchBalance}
@@ -758,11 +785,11 @@ export function Dashboard() {
               {depositPanelOpen && walletAddress && (
                 <div className="rounded-xl border bg-muted/30 p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
                   <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receive SOL</p>
-                  <p className="text-xs text-muted-foreground">Send SOL or SPL tokens to your wallet address below.</p>
+                  <p className="text-xs text-muted-foreground">Send SOL to this address to deposit funds.</p>
                   <div className="flex items-center gap-1.5">
                     <code
                       className="text-sm font-mono bg-background border px-3 py-2 rounded-lg flex-1 truncate"
-                      data-testid="text-wallet-address"
+                      data-testid="text-deposit-address"
                       title={walletAddress}
                     >
                       {shortenAddress(walletAddress, 4)}
@@ -770,7 +797,7 @@ export function Dashboard() {
                     <button
                       onClick={copyAddress}
                       className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors"
-                      data-testid="button-copy-address"
+                      data-testid="button-deposit-copy-address"
                       title="Copy full address"
                     >
                       {copied ? (
@@ -888,21 +915,45 @@ export function Dashboard() {
                 )
               ) : (
                 <div className="space-y-3">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
-                      <code
-                        className="text-xs font-mono text-muted-foreground"
-                        data-testid="text-wallet-address-detail"
+                  <div className="flex items-center gap-1.5">
+                    <code
+                      className="text-xs font-mono bg-muted px-2 py-1.5 rounded-md flex-1 truncate"
+                      data-testid="text-wallet-address"
+                      title={walletAddress}
+                    >
+                      {walletAddress}
+                    </code>
+                    <button
+                      onClick={copyAddress}
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground"
+                      data-testid="button-copy-address"
+                      title="Copy address"
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4" />
+                      )}
+                    </button>
+                    <a
+                      href={getSolscanAccountUrl(walletAddress, cluster)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <button
+                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground"
+                        data-testid="button-solscan-wallet"
+                        title="View on Solscan"
                       >
-                        {shortenAddress(walletAddress, 6)}
-                      </code>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Badge variant="outline" className="text-xs">Mainnet</Badge>
-                      <Badge variant="secondary" className="text-xs">
-                        {isEmbeddedWallet ? "Embedded" : "External"}
-                      </Badge>
-                    </div>
+                        <ExternalLink className="w-4 h-4" />
+                      </button>
+                    </a>
+                  </div>
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <Badge variant="outline" className="text-xs">Mainnet</Badge>
+                    <Badge variant="secondary" className="text-xs">
+                      {isEmbeddedWallet ? "Privy Embedded" : "External Wallet"}
+                    </Badge>
                   </div>
                 </div>
               )}
@@ -934,17 +985,16 @@ export function Dashboard() {
 
             {/* Footer login info */}
             <div className="p-5 pb-4">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Avatar className="h-5 w-5">
-                  <AvatarFallback className="text-[10px] font-medium bg-primary/15 text-primary">
+              <div className="flex items-center gap-1.5 text-xs text-muted-foreground flex-wrap">
+                <span className="shrink-0">Logged in via</span>
+                <Avatar className="h-4 w-4 shrink-0">
+                  <AvatarFallback className="text-[9px] font-medium bg-primary/15 text-primary">
                     {userInitial}
                   </AvatarFallback>
                 </Avatar>
-                <span data-testid="text-profile-login-value" className="truncate">{loginMethod.value}</span>
-                <span className="shrink-0">via</span>
-                <span className="font-semibold text-foreground shrink-0" data-testid="text-profile-login-method">
-                  {loginMethod.type}
-                </span>
+                <span data-testid="text-profile-login-value" className="truncate max-w-[120px]">{loginMethod.value}</span>
+                <span className="shrink-0">·</span>
+                <span className="font-semibold text-foreground shrink-0" data-testid="text-profile-login-method">Privy</span>
               </div>
             </div>
           </div>
