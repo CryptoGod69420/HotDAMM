@@ -39,6 +39,7 @@ import {
   getTokenMintInfo,
 } from "@/utils/tokenUtils";
 import { executeJupiterSwap } from "@/utils/jupiter";
+import { signAndSendTransaction } from "@/utils/sendTransaction";
 import hotDammLogo from "@assets/ChatGPT_Image_Feb_19,_2026,_03_43_00_PM_1771544839266.png";
 import {
   LogOut,
@@ -57,6 +58,8 @@ import {
   Mail,
   Shield,
   ArrowDownToLine,
+  ArrowUpFromLine,
+  Send,
   Coins,
   BarChart3,
 } from "lucide-react";
@@ -105,6 +108,13 @@ export function Dashboard() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [creationStep, setCreationStep] = useState<CreationStep>("idle");
   const [poolError, setPoolError] = useState<string | null>(null);
+
+  const [depositPanelOpen, setDepositPanelOpen] = useState(false);
+  const [withdrawPanelOpen, setWithdrawPanelOpen] = useState(false);
+  const [withdrawTo, setWithdrawTo] = useState("");
+  const [withdrawAmount, setWithdrawAmount] = useState("");
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+  const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
   const activeWallet = wallets.find((w) => w.address) || null;
   const walletAddress = activeWallet?.address;
@@ -474,6 +484,61 @@ export function Dashboard() {
     }
   };
 
+  const handleWithdraw = async () => {
+    if (!activeWallet || !walletAddress) return;
+    setWithdrawError(null);
+
+    const amountNum = parseFloat(withdrawAmount);
+    if (!withdrawTo.trim()) {
+      setWithdrawError("Enter a destination address.");
+      return;
+    }
+    let toPubkey: PublicKey;
+    try {
+      toPubkey = new PublicKey(withdrawTo.trim());
+    } catch {
+      setWithdrawError("Invalid Solana address.");
+      return;
+    }
+    if (isNaN(amountNum) || amountNum <= 0) {
+      setWithdrawError("Enter a valid amount.");
+      return;
+    }
+    if (balance !== null && amountNum >= balance) {
+      setWithdrawError("Amount exceeds balance (keep some SOL for fees).");
+      return;
+    }
+
+    setWithdrawLoading(true);
+    try {
+      const fromPubkey = new PublicKey(walletAddress);
+      const tx = new Transaction();
+      tx.add(
+        ComputeBudgetProgram.setComputeUnitPrice({ microLamports: 5000 }),
+        SystemProgram.transfer({
+          fromPubkey,
+          toPubkey,
+          lamports: Math.round(amountNum * LAMPORTS_PER_SOL),
+        })
+      );
+      const sig = await signAndSendTransaction(activeWallet, connection, tx);
+      toast({
+        title: "Sent",
+        description: `${amountNum} SOL sent successfully.`,
+      });
+      setWithdrawTo("");
+      setWithdrawAmount("");
+      setWithdrawPanelOpen(false);
+      fetchBalance();
+      console.log("Withdraw tx:", sig);
+    } catch (e: any) {
+      console.error("Withdraw failed:", e);
+      setWithdrawError(e?.message || "Transaction failed.");
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
   const loginMethod = (() => {
     if (user?.email) return { type: "Email", value: user.email.address };
     if (user?.google) return { type: "Google", value: user.google.email };
@@ -607,44 +672,197 @@ export function Dashboard() {
         </div>
       </header>
 
-      <Sheet open={profileOpen} onOpenChange={setProfileOpen}>
-        <SheetContent side="right" className="flex flex-col">
-          <SheetHeader>
-            <SheetTitle>Profile</SheetTitle>
+      <Sheet open={profileOpen} onOpenChange={(open) => {
+        setProfileOpen(open);
+        if (!open) {
+          setDepositPanelOpen(false);
+          setWithdrawPanelOpen(false);
+          setWithdrawError(null);
+        }
+      }}>
+        <SheetContent side="right" className="flex flex-col p-0 gap-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Wallet</SheetTitle>
             <SheetDescription>Account and wallet details</SheetDescription>
           </SheetHeader>
 
-          <div className="flex-1 overflow-auto space-y-5 mt-2">
-            <div className="flex items-center gap-3">
-              <Avatar className="h-12 w-12">
-                <AvatarFallback className="text-base font-semibold bg-primary/15 text-primary">
-                  {userInitial}
-                </AvatarFallback>
-              </Avatar>
-              <div className="min-w-0 space-y-0.5">
-                <p className="text-sm font-medium truncate" data-testid="text-profile-login-value">
-                  {loginMethod.value}
-                </p>
-                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                  {loginMethod.type === "Email" || loginMethod.type === "Google" ? (
-                    <Mail className="w-3 h-3" />
-                  ) : (
-                    <Shield className="w-3 h-3" />
-                  )}
-                  <span data-testid="text-profile-login-method">
-                    Signed in via {loginMethod.type}
-                  </span>
+          <div className="flex-1 overflow-auto">
+            {/* Hero balance card */}
+            <div className="p-5 space-y-4">
+              <div className="rounded-2xl bg-muted/50 border p-5 space-y-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="space-y-0.5">
+                    <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Balance</p>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-3xl font-bold tabular-nums" data-testid="text-sol-balance">
+                        {loadingBalance ? (
+                          <Loader2 className="w-6 h-6 animate-spin inline text-muted-foreground" />
+                        ) : balance !== null ? (
+                          formatNumber(balance)
+                        ) : (
+                          "---"
+                        )}
+                      </span>
+                      <span className="text-lg font-semibold text-muted-foreground">SOL</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={fetchBalance}
+                    disabled={loadingBalance}
+                    className="mt-1 p-1.5 rounded-full hover:bg-muted transition-colors text-muted-foreground"
+                    data-testid="button-refresh-balance"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${loadingBalance ? "animate-spin" : ""}`} />
+                  </button>
                 </div>
+
+                {walletAddress && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setDepositPanelOpen((p) => !p);
+                        setWithdrawPanelOpen(false);
+                        setWithdrawError(null);
+                      }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                        depositPanelOpen
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background hover:bg-muted border-border text-foreground"
+                      }`}
+                      data-testid="button-deposit"
+                    >
+                      <ArrowDownToLine className="w-3.5 h-3.5" />
+                      Deposit
+                    </button>
+                    <button
+                      onClick={() => {
+                        setWithdrawPanelOpen((p) => !p);
+                        setDepositPanelOpen(false);
+                        setWithdrawError(null);
+                      }}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-full border text-sm font-medium transition-colors ${
+                        withdrawPanelOpen
+                          ? "bg-foreground text-background border-foreground"
+                          : "bg-background hover:bg-muted border-border text-foreground"
+                      }`}
+                      data-testid="button-withdraw"
+                    >
+                      <ArrowUpFromLine className="w-3.5 h-3.5" />
+                      Withdraw
+                    </button>
+                  </div>
+                )}
               </div>
+
+              {/* Deposit panel */}
+              {depositPanelOpen && walletAddress && (
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Receive SOL</p>
+                  <p className="text-xs text-muted-foreground">Send SOL or SPL tokens to your wallet address below.</p>
+                  <div className="flex items-center gap-1.5">
+                    <code
+                      className="text-sm font-mono bg-background border px-3 py-2 rounded-lg flex-1 truncate"
+                      data-testid="text-wallet-address"
+                      title={walletAddress}
+                    >
+                      {shortenAddress(walletAddress, 4)}
+                    </code>
+                    <button
+                      onClick={copyAddress}
+                      className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors"
+                      data-testid="button-copy-address"
+                      title="Copy full address"
+                    >
+                      {copied ? (
+                        <CheckCircle2 className="w-4 h-4 text-green-500" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-muted-foreground" />
+                      )}
+                    </button>
+                    <a
+                      href={getSolscanAccountUrl(walletAddress, cluster)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <button
+                        className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors"
+                        data-testid="button-solscan-wallet"
+                        title="View on Solscan"
+                      >
+                        <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                      </button>
+                    </a>
+                  </div>
+                  <p className="text-xs text-muted-foreground font-mono break-all opacity-60">{walletAddress}</p>
+                </div>
+              )}
+
+              {/* Withdraw panel */}
+              {withdrawPanelOpen && walletAddress && (
+                <div className="rounded-xl border bg-muted/30 p-4 space-y-3 animate-in slide-in-from-top-2 duration-200">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Send SOL</p>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Destination address"
+                      value={withdrawTo}
+                      onChange={(e) => { setWithdrawTo(e.target.value); setWithdrawError(null); }}
+                      className="font-mono text-xs"
+                      data-testid="input-withdraw-to"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Input
+                        type="number"
+                        step="any"
+                        placeholder="Amount (SOL)"
+                        value={withdrawAmount}
+                        onChange={(e) => { setWithdrawAmount(e.target.value); setWithdrawError(null); }}
+                        className="text-sm"
+                        data-testid="input-withdraw-amount"
+                      />
+                      {balance !== null && (
+                        <button
+                          type="button"
+                          onClick={() => setWithdrawAmount(Math.max(0, balance - 0.002).toFixed(6))}
+                          className="px-3 py-2 text-xs font-medium rounded-lg border bg-background hover:bg-muted transition-colors whitespace-nowrap"
+                          data-testid="button-withdraw-max"
+                        >
+                          Max
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {withdrawError && (
+                    <div className="flex items-start gap-2 text-xs text-destructive">
+                      <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                      <span data-testid="text-withdraw-error">{withdrawError}</span>
+                    </div>
+                  )}
+                  <Button
+                    className="w-full"
+                    onClick={handleWithdraw}
+                    disabled={withdrawLoading || !withdrawTo || !withdrawAmount}
+                    data-testid="button-withdraw-send"
+                  >
+                    {withdrawLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        Sending...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4 mr-2" />
+                        Send SOL
+                      </>
+                    )}
+                  </Button>
+                </div>
+              )}
             </div>
 
             <Separator />
 
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Wallet
-              </p>
-
+            {/* Wallet section */}
+            <div className="p-5 space-y-4">
               {!walletAddress ? (
                 walletTimeout ? (
                   <div className="space-y-2">
@@ -670,115 +888,68 @@ export function Dashboard() {
                 )
               ) : (
                 <div className="space-y-3">
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Address</p>
-                    <div className="flex items-center gap-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
                       <code
-                        className="text-xs font-mono bg-muted px-2 py-1 rounded-md truncate flex-1"
-                        data-testid="text-wallet-address"
+                        className="text-xs font-mono text-muted-foreground"
+                        data-testid="text-wallet-address-detail"
                       >
-                        {walletAddress}
+                        {shortenAddress(walletAddress, 6)}
                       </code>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={copyAddress}
-                        data-testid="button-copy-address"
-                      >
-                        {copied ? (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        ) : (
-                          <Copy className="w-4 h-4" />
-                        )}
-                      </Button>
-                      <a
-                        href={getSolscanAccountUrl(walletAddress, cluster)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <Button variant="ghost" size="icon" data-testid="button-solscan-wallet">
-                          <ExternalLink className="w-4 h-4" />
-                        </Button>
-                      </a>
                     </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Balance</p>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-base font-semibold tabular-nums" data-testid="text-sol-balance">
-                        {loadingBalance ? (
-                          <Loader2 className="w-4 h-4 animate-spin inline" />
-                        ) : balance !== null ? (
-                          `${formatNumber(balance)} SOL`
-                        ) : (
-                          "---"
-                        )}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={fetchBalance}
-                        disabled={loadingBalance}
-                        data-testid="button-refresh-balance"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${loadingBalance ? "animate-spin" : ""}`} />
-                      </Button>
+                    <div className="flex items-center gap-1">
+                      <Badge variant="outline" className="text-xs">Mainnet</Badge>
+                      <Badge variant="secondary" className="text-xs">
+                        {isEmbeddedWallet ? "Embedded" : "External"}
+                      </Badge>
                     </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Network</p>
-                    <Badge variant="outline" className="text-xs">Mainnet</Badge>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-muted-foreground">Wallet Type</p>
-                    <Badge variant="secondary" className="text-xs">
-                      {isEmbeddedWallet ? "Privy Embedded" : "External Wallet"}
-                    </Badge>
                   </div>
                 </div>
               )}
-            </div>
 
-            {isEmbeddedWallet && walletAddress && (
-              <>
-                <Separator />
-                <div className="space-y-3">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Security
-                  </p>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start"
-                    onClick={handleExportWallet}
-                    data-testid="button-export-wallet"
-                  >
-                    <KeyRound className="w-4 h-4 mr-2" />
-                    Export Wallet Keys
-                  </Button>
-                  <p className="text-xs text-muted-foreground">
-                    Export your embedded wallet's private key for backup or use in another wallet app.
-                  </p>
-                </div>
-              </>
-            )}
+              {isEmbeddedWallet && walletAddress && (
+                <Button
+                  variant="outline"
+                  className="w-full justify-start"
+                  onClick={handleExportWallet}
+                  data-testid="button-export-wallet"
+                >
+                  <KeyRound className="w-4 h-4 mr-2" />
+                  Export Wallet Keys
+                </Button>
+              )}
+            </div>
 
             <Separator />
 
-            <div className="space-y-3">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Preferences
-              </p>
+            {/* Preferences */}
+            <div className="p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-sm">Theme</span>
                 <ThemeToggle />
               </div>
             </div>
+
+            <Separator />
+
+            {/* Footer login info */}
+            <div className="p-5 pb-4">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="text-[10px] font-medium bg-primary/15 text-primary">
+                    {userInitial}
+                  </AvatarFallback>
+                </Avatar>
+                <span data-testid="text-profile-login-value" className="truncate">{loginMethod.value}</span>
+                <span className="shrink-0">via</span>
+                <span className="font-semibold text-foreground shrink-0" data-testid="text-profile-login-method">
+                  {loginMethod.type}
+                </span>
+              </div>
+            </div>
           </div>
 
-          <div className="pt-4 border-t mt-auto">
+          <div className="p-4 border-t">
             <Button
               variant="outline"
               className="w-full justify-start text-destructive"
