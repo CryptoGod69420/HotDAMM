@@ -30,7 +30,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { ThemeToggle } from "./ThemeToggle";
-import { PoolSettings, loadSettings, getStartingFeeBps, getFeeDurationParams } from "./PoolSettings";
+import { PoolSettings, loadSettings, saveSettings, getStartingFeeBps, getFeeDurationParams } from "./PoolSettings";
+import { SiSolana } from "react-icons/si";
 import { Portfolio } from "./Portfolio";
 import {
   shortenAddress,
@@ -115,6 +116,9 @@ export function Dashboard() {
   const [withdrawLoading, setWithdrawLoading] = useState(false);
   const [withdrawError, setWithdrawError] = useState<string | null>(null);
 
+  const [depositAmountSol, setDepositAmountSol] = useState<number>(() => loadSettings().depositAmountSol);
+  const [depositInputValue, setDepositInputValue] = useState<string>(() => String(loadSettings().depositAmountSol));
+
   const activeWallet = wallets.find((w) => w.address) || null;
   const walletAddress = activeWallet?.address;
   const isCreating = creationStep !== "idle" && creationStep !== "done";
@@ -163,6 +167,23 @@ export function Dashboard() {
       return () => clearTimeout(timer);
     }
   }, [walletAddress]);
+
+  useEffect(() => {
+    if (view === "dashboard") {
+      const val = loadSettings().depositAmountSol;
+      setDepositAmountSol(val);
+      setDepositInputValue(String(val));
+    }
+  }, [view]);
+
+  const handleDepositAmountChange = (raw: string) => {
+    setDepositInputValue(raw);
+    const num = parseFloat(raw);
+    if (Number.isFinite(num) && num > 0) {
+      setDepositAmountSol(num);
+      saveSettings({ ...loadSettings(), depositAmountSol: num });
+    }
+  };
 
   const copyAddress = async () => {
     if (!walletAddress) return;
@@ -1076,10 +1097,26 @@ export function Dashboard() {
 
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Search className="w-4 h-4 text-muted-foreground" />
-                Create Pool
-              </CardTitle>
+              <div className="flex items-center justify-between gap-3">
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <Search className="w-4 h-4 text-muted-foreground" />
+                  Create Pool
+                </CardTitle>
+                <div className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5" data-testid="pill-deposit-amount">
+                  <SiSolana className="w-3.5 h-3.5 shrink-0" style={{ color: "#9945FF" }} />
+                  <input
+                    type="number"
+                    step="any"
+                    min="0"
+                    value={depositInputValue}
+                    onChange={(e) => handleDepositAmountChange(e.target.value)}
+                    disabled={isCreating}
+                    className="w-16 bg-transparent border-none outline-none text-xs font-mono text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    data-testid="input-deposit-amount-home"
+                  />
+                  <span className="text-xs font-medium text-muted-foreground">SOL</span>
+                </div>
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               <Input
@@ -1159,7 +1196,7 @@ export function Dashboard() {
                           <span>{searchResult.decimals} decimals</span>
                         </div>
                         <p className="text-xs text-muted-foreground">
-                          Deposit: {loadSettings().depositAmountSol} SOL total ({(loadSettings().depositAmountSol / 2).toFixed(4)} SOL kept + {(loadSettings().depositAmountSol / 2).toFixed(4)} SOL swapped to token)
+                          Deposit: {depositAmountSol} SOL total ({(depositAmountSol / 2).toFixed(4)} SOL kept + {(depositAmountSol / 2).toFixed(4)} SOL swapped to token)
                         </p>
                       </div>
                       <Button
@@ -1274,7 +1311,7 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Configure your fee schedule and deposit amount in Settings.
+                  Configure your fee schedule in Settings.
                 </li>
                 <li>
                   Paste a token contract address in the search bar.

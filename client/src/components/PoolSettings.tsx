@@ -88,7 +88,7 @@ export function loadSettings(): PoolSettingsValues {
   return { ...DEFAULT_SETTINGS };
 }
 
-function saveSettings(values: PoolSettingsValues) {
+export function saveSettings(values: PoolSettingsValues) {
   localStorage.setItem(SETTINGS_KEY, JSON.stringify(values));
 }
 
