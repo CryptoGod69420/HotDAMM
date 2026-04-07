@@ -812,14 +812,11 @@ export function Dashboard() {
                       href={getSolscanAccountUrl(walletAddress, cluster)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors inline-flex items-center justify-center"
+                      data-testid="button-deposit-solscan-wallet"
+                      title="View on Solscan"
                     >
-                      <button
-                        className="p-2 rounded-lg border bg-background hover:bg-muted transition-colors"
-                        data-testid="button-deposit-solscan-wallet"
-                        title="View on Solscan"
-                      >
-                        <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                      </button>
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
                     </a>
                   </div>
                   <p className="text-xs text-muted-foreground font-mono break-all opacity-60">{walletAddress}</p>
@@ -941,14 +938,11 @@ export function Dashboard() {
                       href={getSolscanAccountUrl(walletAddress, cluster)}
                       target="_blank"
                       rel="noopener noreferrer"
+                      className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground inline-flex items-center justify-center"
+                      data-testid="button-solscan-wallet"
+                      title="View on Solscan"
                     >
-                      <button
-                        className="p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground"
-                        data-testid="button-solscan-wallet"
-                        title="View on Solscan"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </button>
+                      <ExternalLink className="w-4 h-4" />
                     </a>
                   </div>
                   <div className="flex items-center gap-1.5 flex-wrap">
