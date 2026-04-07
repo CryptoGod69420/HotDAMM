@@ -1006,9 +1006,7 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          <PoolSettings onSaved={() => {}} />
-
-          <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <Button
               className="w-full"
               variant="outline"
@@ -1022,6 +1020,17 @@ export function Dashboard() {
             </Button>
             <Button
               className="w-full"
+              variant="outline"
+              size="lg"
+              onClick={() => setView("settings")}
+              disabled={isCreating}
+              data-testid="button-settings"
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+            <Button
+              className="col-span-2 w-full"
               variant="outline"
               size="lg"
               onClick={() => setProfileOpen(true)}
@@ -1040,7 +1049,7 @@ export function Dashboard() {
             <CardContent>
               <ol className="text-sm text-muted-foreground space-y-2 list-decimal list-inside">
                 <li>
-                  Configure your fee schedule and deposit amount in the settings panel above.
+                  Configure your fee schedule and deposit amount in Settings.
                 </li>
                 <li>
                   Paste a token contract address in the search bar.

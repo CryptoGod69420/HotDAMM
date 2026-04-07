@@ -93,7 +93,7 @@ function saveSettings(values: PoolSettingsValues) {
 }
 
 interface ToggleGroupProps {
-  options: { label: React.ReactNode; value: string }[];
+  options: { label: string; value: string }[];
   value: string;
   onChange: (value: string) => void;
   testIdPrefix: string;
@@ -165,26 +165,6 @@ export function PoolSettings({ onSaved }: Props) {
               />
               <span className="text-xs text-muted-foreground font-medium">SOL</span>
             </div>
-          </div>
-
-          <div className="h-px bg-border" />
-
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Pool Fee</p>
-              <p className="text-xs text-muted-foreground">
-                {settings.feeDecayEnabled ? "Starting fee level" : "Fee level"} — 50% standard or 99% Max Extract
-              </p>
-            </div>
-            <ToggleGroup
-              options={[
-                { label: "50%", value: "no" },
-                { label: <span className="flex items-center gap-1">Max Extract 🔥 <span className="px-1.5 py-0.5 text-[10px] font-semibold rounded-full bg-primary/15 text-primary leading-none">New!</span></span>, value: "yes" },
-              ]}
-              value={settings.maxExtract ? "yes" : "no"}
-              onChange={(v) => update("maxExtract", v === "yes")}
-              testIdPrefix="toggle-max-extract"
-            />
           </div>
 
           <div className="h-px bg-border" />
@@ -320,6 +300,25 @@ export function PoolSettings({ onSaved }: Props) {
             </>
           )}
 
+          <div className="h-px bg-border" />
+
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Pool Fee</p>
+              <p className="text-xs text-muted-foreground">
+                {settings.feeDecayEnabled ? "Starting fee level" : "Fee level"} — 50% standard or 99% Max Extract
+              </p>
+            </div>
+            <ToggleGroup
+              options={[
+                { label: "50%", value: "no" },
+                { label: "Max Extract 🔥", value: "yes" },
+              ]}
+              value={settings.maxExtract ? "yes" : "no"}
+              onChange={(v) => update("maxExtract", v === "yes")}
+              testIdPrefix="toggle-max-extract"
+            />
+          </div>
         </CardContent>
       </Card>
 
