@@ -1119,6 +1119,10 @@ export function Dashboard() {
               </div>
             </CardHeader>
             <CardContent className="space-y-3">
+              <div className="flex items-center justify-between text-xs text-muted-foreground">
+                <span>Deposit Amount</span>
+                <span data-testid="text-deposit-per-side">({(depositAmountSol / 2).toFixed(4)} SOL per side)</span>
+              </div>
               <Input
                 placeholder="Paste token contract address..."
                 className="font-mono text-xs"
