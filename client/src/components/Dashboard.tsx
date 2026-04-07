@@ -520,7 +520,7 @@ export function Dashboard() {
       setWithdrawError("Invalid Solana address.");
       return;
     }
-    if (isNaN(amountNum) || amountNum <= 0) {
+    if (!Number.isFinite(amountNum) || amountNum <= 0) {
       setWithdrawError("Enter a valid amount.");
       return;
     }
@@ -790,6 +790,7 @@ export function Dashboard() {
                     <code
                       className="text-sm font-mono bg-background border px-3 py-2 rounded-lg flex-1 truncate"
                       data-testid="text-deposit-address"
+                      data-address={walletAddress}
                       title={walletAddress}
                     >
                       {shortenAddress(walletAddress, 4)}
@@ -886,7 +887,8 @@ export function Dashboard() {
             <Separator />
 
             {/* Wallet section */}
-            <div className="p-5 space-y-4">
+            <div className="p-5 space-y-3">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Wallet</p>
               {!walletAddress ? (
                 walletTimeout ? (
                   <div className="space-y-2">
@@ -953,15 +955,18 @@ export function Dashboard() {
               )}
 
               {isEmbeddedWallet && walletAddress && (
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={handleExportWallet}
-                  data-testid="button-export-wallet"
-                >
-                  <KeyRound className="w-4 h-4 mr-2" />
-                  Export Wallet Keys
-                </Button>
+                <>
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider pt-1">Security</p>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start"
+                    onClick={handleExportWallet}
+                    data-testid="button-export-wallet"
+                  >
+                    <KeyRound className="w-4 h-4 mr-2" />
+                    Export Wallet Keys
+                  </Button>
+                </>
               )}
             </div>
 
