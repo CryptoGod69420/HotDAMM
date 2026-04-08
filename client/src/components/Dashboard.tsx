@@ -609,7 +609,7 @@ export function Dashboard() {
   if (view === "portfolio") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
+        <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -643,7 +643,7 @@ export function Dashboard() {
   if (view === "settings") {
     return (
       <div className="min-h-screen bg-background flex flex-col">
-        <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
+        <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <Button
               variant="ghost"
@@ -672,7 +672,7 @@ export function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background">
+      <header className="flex items-center justify-between gap-2 p-4 border-b sticky top-0 z-50 bg-background/95 backdrop-blur-sm">
         <div className="flex items-center gap-2">
           <img src={hotDammLogo} alt="Hot DAMM!" className="w-10 h-10" />
         </div>
@@ -732,7 +732,7 @@ export function Dashboard() {
           <div className="flex-1 overflow-auto">
             {/* Hero balance card */}
             <div className="p-5 space-y-4">
-              <div className="rounded-2xl bg-muted/50 border p-5 space-y-4">
+              <div className="rounded-2xl bg-gradient-to-br from-primary/5 via-muted/40 to-muted/30 border p-5 space-y-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="space-y-0.5">
                     <p className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Balance</p>
@@ -1095,14 +1095,14 @@ export function Dashboard() {
             </Card>
           )}
 
-          <Card>
+          <Card className="border-primary/20">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-3">
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   <Search className="w-4 h-4 text-muted-foreground" />
                   Create Pool
                 </CardTitle>
-                <div className="flex items-center gap-1.5 rounded-full border bg-muted/50 px-3 py-1.5" data-testid="pill-deposit-amount">
+                <div className="flex items-center gap-1.5 rounded-full border border-primary/25 bg-muted/50 px-3 py-1.5" data-testid="pill-deposit-amount">
                   <SiSolana className="w-3.5 h-3.5 shrink-0" style={{ color: "#9945FF" }} />
                   <input
                     type="number"
@@ -1206,7 +1206,7 @@ export function Dashboard() {
                       <Button
                         onClick={handleOpenPosition}
                         disabled={isCreating || !walletAddress}
-                        className="shrink-0"
+                        className="shrink-0 hover:shadow-[0_0_14px_hsl(var(--primary)/0.35)] transition-shadow"
                         data-testid="button-open-position"
                       >
                         {isCreating ? (
@@ -1281,7 +1281,7 @@ export function Dashboard() {
               disabled={isCreating}
               data-testid="button-portfolio"
             >
-              <BarChart3 className="w-4 h-4 mr-2" />
+              <BarChart3 className="w-4 h-4 mr-2 text-blue-400" />
               Portfolio
             </Button>
             <Button
@@ -1292,7 +1292,7 @@ export function Dashboard() {
               disabled={isCreating}
               data-testid="button-settings"
             >
-              <Settings className="w-4 h-4 mr-2" />
+              <Settings className="w-4 h-4 mr-2 text-primary" />
               Settings
             </Button>
             <Button
@@ -1303,7 +1303,7 @@ export function Dashboard() {
               disabled={isCreating}
               data-testid="button-account-details"
             >
-              <User className="w-4 h-4 mr-2" />
+              <User className="w-4 h-4 mr-2 text-emerald-400" />
               Account & Wallet Details
             </Button>
           </div>
