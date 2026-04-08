@@ -63,7 +63,7 @@ export function LoginScreen() {
             ].map((feature) => (
               <div
                 key={feature.label}
-                className="text-center space-y-1 p-3 rounded-md bg-card border border-card-border shadow-sm"
+                className="text-center space-y-1 p-3 rounded-md bg-card border border-card-border"
               >
                 <p className="text-xs font-medium">{feature.label}</p>
                 <p className="text-xs text-muted-foreground leading-tight">{feature.desc}</p>
